@@ -12,6 +12,7 @@
     --paper:#fbf6ec; --paper2:#f3ecdc; --card:#fffdf8;
     --ink:#3a352b; --ink-soft:#8a8472; --line:#e7ddc7;
     --green:#5b8a4f; --green-d:#456b3c; --green-soft:#e6efe0; --coral:#e0764f;
+    --hot:#d23f22; --hot-soft:#fae0d8;
     --shadow:0 2px 0 #ece3cf, 0 8px 20px -10px rgba(80,70,40,.35);
     --radius:16px;
   }
@@ -27,22 +28,24 @@
   .logo{width:40px;height:40px;border-radius:12px;background:var(--green);color:#fff;display:grid;place-items:center;font-size:21px;box-shadow:0 3px 0 var(--green-d);transform:rotate(-4deg);}
   h1{font-size:20px;font-weight:900;margin:0;}
   .sub{font-size:11px;color:var(--ink-soft);margin-top:1px;}
-  .whorow{display:flex;align-items:center;gap:8px;margin-top:10px;}
-  .whorow .lab{font-size:12px;color:var(--ink-soft);}
-  .seg{display:flex;background:var(--paper2);border:1.5px solid var(--line);border-radius:999px;padding:3px;gap:2px;}
-  .seg button{border:0;background:transparent;font-family:inherit;font-weight:700;font-size:13px;color:var(--ink-soft);padding:5px 15px;border-radius:999px;cursor:pointer;transition:.18s;}
-  .seg button.on.me{background:var(--green);color:#fff;box-shadow:0 2px 0 var(--green-d);}
-  .seg button.on.mom{background:var(--coral);color:#fff;box-shadow:0 2px 0 #b85733;}
+  .gear{margin-left:auto;width:40px;height:40px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);font-size:19px;cursor:pointer;display:grid;place-items:center;}
+  .gear:active{background:var(--paper2);}
 
   .tabs{display:flex;gap:4px;margin-top:11px;}
   .tabs button{flex:1;border:1.5px solid var(--line);background:var(--card);font-family:inherit;font-weight:700;font-size:13px;color:var(--ink-soft);padding:9px 0;border-radius:12px 12px 0 0;border-bottom:none;cursor:pointer;transition:.15s;}
   .tabs button.active{color:var(--green-d);background:var(--green-soft);border-color:#cfe0c4;}
 
-  .toolrow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 2px;}
+  .toolrow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 2px;flex-wrap:wrap;}
   .count{font-size:13px;color:var(--ink-soft);font-weight:700;}
-  .count b{color:var(--green-d);font-size:18px;}
-  .ghostbtn{border:1.5px solid var(--line);background:var(--card);font-family:inherit;font-weight:700;font-size:12px;color:var(--ink-soft);padding:7px 13px;border-radius:999px;cursor:pointer;transition:.15s;}
+  .count b{color:var(--green-d);font-size:17px;}
+  .count .yen{color:var(--ink);}
+  .sortsel{font-family:inherit;font-weight:700;font-size:12px;color:var(--ink-soft);border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:7px 12px;cursor:pointer;outline:none;}
+  .ghostbtn{border:1.5px solid var(--line);background:var(--card);font-family:inherit;font-weight:700;font-size:12px;color:var(--ink-soft);padding:7px 13px;border-radius:999px;cursor:pointer;}
   .ghostbtn:active{background:var(--paper2);}
+
+  .seg2{display:flex;background:var(--paper2);border:1.5px solid var(--line);border-radius:999px;padding:3px;gap:2px;margin:10px 0 2px;}
+  .seg2 button{flex:1;border:0;background:transparent;font-family:inherit;font-weight:700;font-size:13px;color:var(--ink-soft);padding:8px 0;border-radius:999px;cursor:pointer;transition:.15s;}
+  .seg2 button.on{background:var(--green);color:#fff;box-shadow:0 2px 0 var(--green-d);}
 
   .addbar{display:flex;gap:8px;margin:12px 0;}
   .addbar input{flex:1;font-family:inherit;font-size:16px;font-weight:500;border:2px solid var(--line);background:var(--card);border-radius:13px;padding:12px 14px;color:var(--ink);outline:none;transition:.15s;}
@@ -50,49 +53,49 @@
   .addbtn{border:0;background:var(--green);color:#fff;font-family:inherit;font-weight:900;font-size:15px;padding:0 18px;border-radius:13px;cursor:pointer;box-shadow:0 3px 0 var(--green-d);transition:.1s;white-space:nowrap;}
   .addbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--green-d);}
 
-  .zone{margin-top:15px;}
-  .zonehead{display:flex;align-items:center;gap:8px;margin:0 2px 7px;}
+  .grp{margin-top:15px;}
+  .grphead{display:flex;align-items:center;gap:8px;margin:0 2px 7px;}
   .badge{font-size:12px;font-weight:900;padding:3px 9px;border-radius:8px;flex:none;}
-  .zonehead .nm{font-size:12px;font-weight:700;color:var(--ink-soft);}
-  .zonehead .ln{flex:1;height:1.5px;background:var(--line);border-radius:2px;}
+  .grphead .nm{font-size:12px;font-weight:700;color:var(--ink-soft);}
+  .grphead .ln{flex:1;height:1.5px;background:var(--line);border-radius:2px;}
 
-  /* edit row (個数＋並び替え) */
-  .erow{display:flex;align-items:center;gap:9px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:9px 11px;margin-bottom:8px;box-shadow:var(--shadow);}
+  /* edit row */
+  .erow{display:flex;align-items:center;gap:10px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow);}
   .erow.has{border-color:#cfe0c4;background:#fff;}
-  .ord{display:flex;flex-direction:column;gap:3px;flex:none;}
-  .ord button{width:30px;height:21px;border:1.5px solid var(--line);background:var(--paper2);border-radius:7px;font-size:13px;font-weight:900;color:var(--green-d);cursor:pointer;font-family:inherit;line-height:1;display:grid;place-items:center;padding:0;}
-  .ord button:active{background:#e8dcc2;}
+  .erow.hot{border-color:#eebfb2;}
+  .erow .bdg{font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;flex:none;}
   .erow .nm{flex:1;min-width:0;font-size:16px;font-weight:700;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .erow.has .nm{color:var(--ink);}
+  .erow.has .nm{color:var(--ink);} .erow.hot .nm{color:var(--hot);}
   .stepper{display:flex;align-items:center;flex:none;border:2px solid var(--line);border-radius:11px;overflow:hidden;}
   .stepper button{width:36px;height:36px;border:0;background:var(--paper2);font-size:20px;font-weight:900;color:var(--green-d);cursor:pointer;font-family:inherit;line-height:1;}
   .stepper button:active{background:#e8dcc2;}
   .stepper .v{min-width:30px;text-align:center;font-size:16px;font-weight:900;color:var(--ink);}
-  .erow:not(.has) .stepper .v{color:#c9c2b0;}
+  .erow:not(.has) .stepper .v{color:#c9c2b0;} .erow.hot .stepper .v{color:var(--hot);}
 
-  /* item row (品目登録簿) */
-  .irow{display:flex;align-items:center;gap:11px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:13px 14px;margin-bottom:8px;box-shadow:var(--shadow);cursor:pointer;}
-  .irow .nm{flex:1;min-width:0;font-size:17px;font-weight:700;}
-  .irow .edit{font-size:13px;color:var(--ink-soft);flex:none;}
+  /* item (品目) row */
+  .irow{display:flex;align-items:center;gap:10px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:12px 13px;margin-bottom:8px;box-shadow:var(--shadow);cursor:pointer;}
+  .irow .idn{font-size:11px;font-weight:900;color:var(--ink-soft);background:var(--paper2);border-radius:6px;padding:2px 6px;flex:none;min-width:26px;text-align:center;}
+  .irow .bdg{font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;flex:none;}
+  .irow .nm{flex:1;min-width:0;font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .irow .type{font-size:11px;color:var(--ink-soft);flex:none;}
+  .irow .price{font-size:12px;font-weight:700;color:var(--green-d);flex:none;min-width:46px;text-align:right;}
 
   /* shop / list row */
   .srow{display:flex;align-items:center;gap:13px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:15px 15px;margin-bottom:9px;box-shadow:var(--shadow);transition:.16s;}
   .srow:active{transform:scale(.99);}
+  .srow.hot{border-color:#eebfb2;background:#fff;}
   .check{width:32px;height:32px;border-radius:9px;border:2.5px solid var(--line);flex:none;display:grid;place-items:center;cursor:pointer;transition:.15s;background:var(--paper);}
   .check svg{width:19px;height:19px;opacity:0;transform:scale(.4);transition:.18s;}
   .srow .body{flex:1;min-width:0;}
   .srow .nm{font-size:19px;font-weight:700;line-height:1.2;}
-  .srow .qty{font-size:13px;font-weight:700;color:var(--green-d);background:var(--green-soft);padding:1px 9px;border-radius:999px;margin-left:7px;}
+  .srow.hot .nm{color:var(--hot);}
+  .srow .qty{font-size:13px;font-weight:800;color:var(--green-d);background:var(--green-soft);padding:1px 9px;border-radius:999px;margin-left:7px;}
+  .srow.hot .qty{color:#fff;background:var(--hot);}
+  .srow .bdg{font-size:10px;font-weight:900;padding:2px 7px;border-radius:7px;flex:none;}
   .srow.done{opacity:.5;}
   .srow.done .check{background:var(--green);border-color:var(--green);}
   .srow.done .check svg{opacity:1;transform:scale(1);}
   .srow.done .nm{text-decoration:line-through;text-decoration-color:var(--ink-soft);}
-
-  .prog{display:flex;align-items:center;gap:10px;margin:12px 0 4px;background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:10px 14px;box-shadow:var(--shadow);}
-  .prog .big{font-size:22px;font-weight:900;color:var(--green-d);}
-  .prog .small{font-size:12px;color:var(--ink-soft);}
-  .bar{flex:1;height:10px;background:var(--paper2);border-radius:999px;overflow:hidden;}
-  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--green),#7cae63);border-radius:999px;transition:width .35s;}
 
   .empty{text-align:center;color:var(--ink-soft);padding:46px 20px;font-weight:500;line-height:1.7;}
   .empty .e{font-size:38px;margin-bottom:8px;}
@@ -109,41 +112,48 @@
   .hitem .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:none;}
   .hitem .hn{font-size:15px;font-weight:500;flex:1;}
 
-  /* edit sheet */
+  /* sheets */
   .sheetbg{position:fixed;inset:0;background:rgba(58,53,43,.45);z-index:70;opacity:0;pointer-events:none;transition:.2s;backdrop-filter:blur(2px);}
   .sheetbg.open{opacity:1;pointer-events:auto;}
-  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:71;background:var(--paper);border-radius:24px 24px 0 0;max-width:520px;margin:0 auto;padding:8px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(110%);transition:.28s cubic-bezier(.2,.8,.2,1);box-shadow:0 -10px 40px -10px rgba(0,0,0,.3);max-height:86vh;overflow-y:auto;}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:71;background:var(--paper);border-radius:24px 24px 0 0;max-width:520px;margin:0 auto;padding:8px 18px calc(22px + env(safe-area-inset-bottom));transform:translateY(110%);transition:.28s cubic-bezier(.2,.8,.2,1);box-shadow:0 -10px 40px -10px rgba(0,0,0,.3);max-height:88vh;overflow-y:auto;}
   .sheet.open{transform:translateY(0);}
   .grab{width:40px;height:5px;border-radius:999px;background:var(--line);margin:6px auto 14px;}
   .sheet h3{margin:0 0 14px;font-size:18px;font-weight:900;}
-  .field{margin-bottom:14px;}
+  .field{margin-bottom:13px;}
   .field label{display:block;font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;}
-  .field input{width:100%;font-family:inherit;font-size:17px;font-weight:500;border:2px solid var(--line);background:var(--card);border-radius:12px;padding:12px 14px;outline:none;}
+  .field input{width:100%;font-family:inherit;font-size:17px;font-weight:500;border:2px solid var(--line);background:var(--card);border-radius:12px;padding:11px 13px;outline:none;}
   .field input:focus{border-color:var(--green);}
+  .row2{display:flex;gap:10px;} .row2 .field{flex:1;}
   .qstep{display:flex;align-items:center;gap:14px;}
-  .qstep button{width:46px;height:46px;border-radius:12px;border:2px solid var(--line);background:var(--card);font-size:24px;font-weight:900;color:var(--green-d);cursor:pointer;font-family:inherit;}
-  .qstep .v{font-size:22px;font-weight:900;min-width:36px;text-align:center;}
-  .chips{display:flex;flex-wrap:wrap;gap:7px;}
-  .chip{border:2px solid var(--line);background:var(--card);font-family:inherit;font-weight:700;font-size:13px;padding:7px 11px;border-radius:999px;cursor:pointer;color:var(--ink-soft);transition:.12s;}
+  .qstep button{width:44px;height:44px;border-radius:12px;border:2px solid var(--line);background:var(--card);font-size:23px;font-weight:900;color:var(--green-d);cursor:pointer;font-family:inherit;}
+  .qstep .v{font-size:21px;font-weight:900;min-width:34px;text-align:center;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{border:2px solid var(--line);background:var(--card);font-family:inherit;font-weight:700;font-size:12.5px;padding:6px 10px;border-radius:999px;cursor:pointer;color:var(--ink-soft);transition:.12s;}
   .chip.on{background:var(--green);color:#fff;border-color:var(--green);}
   .sheetbtns{display:flex;gap:10px;margin-top:6px;}
   .sheetbtns button{flex:1;font-family:inherit;font-weight:900;font-size:15px;padding:14px;border-radius:13px;cursor:pointer;border:0;}
-  .b-del{background:#f7e3d8;color:#b85733;}
-  .b-save{background:var(--green);color:#fff;box-shadow:0 3px 0 var(--green-d);}
+  .b-del{background:var(--hot-soft);color:var(--hot);} .b-save{background:var(--green);color:#fff;box-shadow:0 3px 0 var(--green-d);}
+  .b-done{background:var(--ink);color:#fff;}
+
+  /* zone admin */
+  .zrow{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:8px 9px;margin-bottom:7px;}
+  .swatch{width:30px;height:30px;border-radius:8px;border:2px solid rgba(0,0,0,.06);flex:none;cursor:pointer;}
+  .zrow .zc{font-size:12px;font-weight:900;flex:none;min-width:34px;text-align:center;color:var(--ink-soft);}
+  .zrow input{flex:1;min-width:0;font-family:inherit;font-size:14px;font-weight:700;border:1.5px solid var(--line);background:var(--paper);border-radius:9px;padding:7px 9px;outline:none;}
+  .zrow input:focus{border-color:var(--green);}
+  .zbtn{width:30px;height:30px;border:1.5px solid var(--line);background:var(--paper2);border-radius:8px;font-size:13px;font-weight:900;color:var(--green-d);cursor:pointer;font-family:inherit;flex:none;}
+  .zbtn.del{color:var(--hot);}
 
   .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:13px;font-weight:700;padding:10px 18px;border-radius:999px;z-index:90;opacity:0;transition:.25s;box-shadow:0 8px 20px -6px rgba(0,0,0,.4);max-width:90%;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
-  /* fullscreen list mode */
   body.fs header,body.fs .toolrow{display:none !important;}
-  body.fs .wrap{padding-top:14px;}
-  body.fs .srow{padding:18px 16px;}
-  body.fs .srow .nm{font-size:21px;}
+  body.fs .wrap{padding-top:12px;}
+  body.fs .srow{padding:18px 16px;} body.fs .srow .nm{font-size:21px;}
   .fsbtn{position:fixed;top:10px;right:12px;z-index:55;border:0;background:var(--ink);color:#fff;font-family:inherit;font-weight:900;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;box-shadow:0 6px 16px -6px rgba(0,0,0,.5);display:none;align-items:center;gap:6px;}
   body.fs .fsbtn{display:inline-flex;}
   .hidden{display:none !important;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="wrap">
@@ -151,10 +161,7 @@
     <div class="titlebar">
       <div class="logo">🧺</div>
       <div><h1>おかいものメモ</h1><div class="sub">売り場を回る順に</div></div>
-    </div>
-    <div class="whorow">
-      <span class="lab">操作するのは</span>
-      <div class="seg" id="whoSeg"><button class="on me" data-who="me">自分</button><button class="mom" data-who="mom">お母さん</button></div>
+      <button class="gear" id="gearBtn" title="売り場の管理">⚙</button>
     </div>
     <div class="tabs">
       <button class="active" data-tab="list">🛒 リスト</button>
@@ -164,29 +171,38 @@
     </div>
   </header>
 
-  <!-- LIST (お店で・全画面) -->
+  <!-- LIST -->
   <main id="listTab">
     <div class="toolrow">
-      <div class="count">のこり <b id="remain">0</b> 品</div>
-      <button class="ghostbtn" id="fsEnter">⛶ 全画面</button>
+      <div class="count">のこり <b id="remain">0</b> 品 ・ 合計 <span class="yen" id="listTotal">¥0</span></div>
+      <div style="display:flex;gap:6px;">
+        <select class="sortsel" id="listSort"></select>
+        <button class="ghostbtn" id="fsEnter">⛶ 全画面</button>
+      </div>
     </div>
-    <div class="prog">
-      <div><div class="big"><span id="remain2">0</span><span style="font-size:14px;color:var(--ink-soft);">こ</span></div><div class="small">のこり</div></div>
-      <div class="bar"><i id="barFill" style="width:0%"></i></div>
-      <div class="small" id="progTxt">0/0</div>
-    </div>
+    <div class="seg2" id="listSeg"><button class="on" data-seg="todo">未終了</button><button data-seg="done">終了</button></div>
     <div id="listArea"></div>
   </main>
 
-  <!-- EDIT (個数＋並び替え) -->
+  <!-- EDIT -->
   <main id="editTab" class="hidden">
-    <div class="toolrow"><div class="count">今回 <b id="tripCount">0</b> 品</div><span style="font-size:11px;color:var(--ink-soft)">↑↓で順番、＋−で個数</span></div>
+    <div class="toolrow">
+      <div class="count">今回 <b id="tripCount">0</b> 品 ・ 合計 <span class="yen" id="editTotal">¥0</span></div>
+      <select class="sortsel" id="editSort"></select>
+    </div>
     <div id="editArea"></div>
   </main>
 
-  <!-- ITEM (品目登録簿) -->
+  <!-- ITEM -->
   <main id="itemTab" class="hidden">
     <div class="addbar"><input id="addInput" type="text" placeholder="品目を追加（例：オリーブ油）" enterkeyhint="done"><button class="addbtn" id="addBtn">追加</button></div>
+    <div class="toolrow">
+      <div class="count">全 <b id="itemCount">0</b> 品目</div>
+      <div style="display:flex;gap:6px;">
+        <select class="sortsel" id="itemSort"></select>
+        <button class="ghostbtn" id="renumBtn">番号振り直し</button>
+      </div>
+    </div>
     <div id="itemArea"></div>
   </main>
 
@@ -198,25 +214,45 @@
 
 <div class="footer hidden" id="footer"><div class="inner"><button class="checkout" id="checkoutBtn" disabled><span>🛒</span><span id="checkoutTxt">カゴに入れたものを記録</span></button></div></div>
 
+<!-- item edit sheet -->
 <div class="sheetbg" id="sheetBg"></div>
 <div class="sheet" id="sheet">
   <div class="grab"></div>
   <h3 id="sheetTitle">品目の編集</h3>
-  <div class="field"><label>なまえ</label><input id="editName" type="text"></div>
-  <div class="field"><label>こすう（0 なら今回は買わない）</label><div class="qstep"><button id="qMinus">−</button><span class="v" id="qVal">0</span><button id="qPlus">＋</button></div></div>
+  <div class="field"><label>なまえ</label><input id="fName" type="text"></div>
+  <div class="row2">
+    <div class="field"><label>商品id</label><input id="fId" type="number" inputmode="numeric"></div>
+    <div class="field"><label>単価（円）</label><input id="fPrice" type="number" inputmode="numeric"></div>
+  </div>
+  <div class="field"><label>種別</label><div class="chips" id="typeChips"></div></div>
   <div class="field"><label>売り場</label><div class="chips" id="zoneChips"></div></div>
+  <div class="field"><label>今回のこすう（0 なら買わない）</label><div class="qstep"><button id="qMinus">−</button><span class="v" id="qVal">0</span><button id="qPlus">＋</button></div></div>
   <div class="sheetbtns"><button class="b-del" id="delBtn">削除</button><button class="b-save" id="saveBtn">保存</button></div>
+</div>
+
+<!-- zone admin sheet -->
+<div class="sheetbg" id="zoneBg"></div>
+<div class="sheet" id="zoneSheet">
+  <div class="grab"></div>
+  <h3>売り場の管理（回る順）</h3>
+  <div class="addbar"><input id="zAddCode" type="text" placeholder="記号" style="flex:none;width:80px;"><input id="zAddLabel" type="text" placeholder="売り場の名前"><button class="addbtn" id="zAddBtn">追加</button></div>
+  <div id="zoneAdminArea" style="margin-top:6px;"></div>
+  <div class="sheetbtns" style="margin-top:12px;"><button class="b-done" id="zoneDone">とじる</button></div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-const FAM = {
+/* ===== 色パレット ===== */
+const FAM={
   paper:{bg:'#eceef0',ink:'#5b6470'}, veg:{bg:'#e6efe0',ink:'#456b3c'}, bread:{bg:'#f5ead6',ink:'#9a6f2e'},
   aisle:{bg:'#e7e9f5',ink:'#4b56a0'}, chill:{bg:'#d9f0eb',ink:'#27796b'}, meat:{bg:'#f7e1d8',ink:'#b85539'},
   fish:{bg:'#dceaf3',ink:'#356f99'}, aisle2:{bg:'#ede3f5',ink:'#7a4fa0'}, etc:{bg:'#eceae2',ink:'#7a756a'},
 };
-const ZONES = [
+const PALETTE=Object.keys(FAM);
+
+/* ===== 売り場（回る順・編集可） ===== */
+let ZONES=[
   {code:'A',label:'紙物・日用紙',fam:'paper'},{code:'B',label:'野菜・果物',fam:'veg'},{code:'C',label:'野菜・きのこ',fam:'veg'},
   {code:'D',label:'パン・大豆製品',fam:'bread'},{code:'②-2',label:'通路② 奥',fam:'aisle'},{code:'②-1',label:'通路② 日用・ラップ',fam:'aisle'},
   {code:'①-2',label:'通路① 歯みがき等',fam:'aisle'},{code:'①-1',label:'通路① 冷凍',fam:'aisle'},{code:'H',label:'日用品コーナー',fam:'paper'},
@@ -226,8 +262,15 @@ const ZONES = [
   {code:'⑥-2',label:'砂糖・缶詰',fam:'aisle2'},{code:'⑦-1',label:'卵・マヨ',fam:'aisle2'},{code:'⑦-2',label:'通路⑦',fam:'aisle2'},
   {code:'その他',label:'その他',fam:'etc'},
 ];
-const zoneIdx={}; ZONES.forEach((z,i)=>zoneIdx[z.code]=i);
+let zoneIdx={};
+function recomputeZones(){ zoneIdx={}; ZONES.forEach((z,i)=>zoneIdx[z.code]=i); }
+recomputeZones();
 const zoneOf=c=>ZONES[zoneIdx[c]]||ZONES[ZONES.length-1];
+
+/* ===== 種別 ===== */
+const TYPES=['野菜','果物','きのこ','肉','魚','卵','乳製品','パン','大豆製品','惣菜','冷食','麺','菓子','飲料','粉・乾物','調味料','缶詰','日用品','その他'];
+const typeIdx={}; TYPES.forEach((t,i)=>typeIdx[t]=i);
+const zoneDefaultType={A:'日用品',H:'日用品','②-1':'日用品','②-2':'その他','①-1':'冷食','①-2':'日用品',B:'野菜',C:'野菜',D:'パン',G:'乳製品',F:'肉',E:'魚','③-1':'菓子','④-1':'飲料','④-2':'粉・乾物','⑤-1':'調味料','⑤-2':'調味料','⑥-1':'調味料','⑥-2':'調味料','⑦-1':'卵','その他':'その他'};
 
 const GUESS=[
   ['①-1',['冷凍','アイス','冷食']],
@@ -252,135 +295,147 @@ const GUESS=[
   ['H',['ネット','排水','電池','ゴミ袋']],
 ];
 function guessZone(n){for(const[c,ws]of GUESS){if(ws.some(w=>n.includes(w)))return c;}return 'その他';}
-
-const RAW=[
-  ['A','トイレットペーパー',0],['A','キッチンペーパー',0],['A','ティッシュ',0],
-  ['B','りんご',0],['B','ブロッコリー',1],['B','トマト',2],['B','きゅうり',0],['B','ほうれん草',1],['B','小松菜',1],
-  ['B','じゃがいも',0],['B','玉ねぎ',2],['B','にんじん',2],['B','しょうが',0],['B','大豆',0],['B','小豆',0],['B','ネギ',1],
-  ['C','しめじ',0],['C','えのき',0],['C','みつば',1],['C','バナナ',2],['C','キャベツ（半）',1],['C','大根（半）',1],['C','なめこ',1],
-  ['D','あんぱん',1],['D','納豆',1],['D','豆腐',2],['D','油揚げ（中国産）',0],['D','油揚げ（国産）',0],
-  ['②-2','玄米フレーク',1],['②-1','食器洗剤',1],['②-1','サランラップ',0],['②-1','クッキングシート',0],['②-1','アルミホイル',0],
-  ['①-2','歯ブラシ',0],['①-2','歯磨き粉 クリニカ',0],['①-1','冷凍うどん',0],['H','浅型排水用ネット',0],
-  ['G','牛乳',0],['G','イカ天',1],['G','コロッケ',1],['G','チーズ QBB',0],['G','チーズ 雪印',0],['G','野沢菜',0],
-  ['G','ヨーグルト',1],['G','やきそば',2],['G','ラーメン汁',0],['G','ラーメン',0],
-  ['F','鶏胸肉つくば鶏',1],['F','豚コマ',1],
-  ['E','いわし（生）',5],['E','アジ開き',1],['E','鰹のたたき',2],['E','お刺身',0],['E','鮭',1],['E','塩サバ',0],['E','しらす',1],
-  ['③-1','おかし',1],['④-1','コーヒー',0],
-  ['④-2','片栗粉',0],['④-2','パン粉',0],['④-2','ひじき',0],['④-2','わかめ（乾燥）',1],['④-2','切り干し大根',1],
-  ['⑤-1','みそ',0],['⑤-1','だしパック',0],['⑤-1','コンソメの素',0],['⑤-1','おかか',0],['⑤-2','カレー',1],
-  ['⑥-1','しょうゆ',0],['⑥-1','みりん',0],['⑥-1','ポン酢',1],['⑥-1','料理酒',0],['⑥-1','そうめん',0],['⑥-1','そば',0],['⑥-1','玄米酢',0],
-  ['⑥-2','砂糖',0],['⑥-2','さば缶',0],['⑦-1','マヨネーズ',1],['⑦-1','卵',1],
+const TYPEKW=[
+  ['きのこ',['しめじ','えのき','きのこ','なめこ','まいたけ','しいたけ']],
+  ['果物',['りんご','バナナ','みかん','いちご','ぶどう','果物']],
+  ['野菜',['野菜','トマト','きゅうり','ほうれん草','小松菜','じゃがいも','玉ねぎ','にんじん','ネギ','キャベツ','大根','ブロッコリー','なす','レタス','みつば','しょうが']],
+  ['魚',['いわし','あじ','鰹','刺身','鮭','サバ','しらす','まぐろ','魚','えび','いか']],
+  ['肉',['鶏','豚','牛','肉','ひき肉','ベーコン','ハム','ウインナー']],
+  ['卵',['卵','たまご','玉子']],
+  ['乳製品',['牛乳','チーズ','ヨーグルト','バター','生クリーム']],
+  ['パン',['パン','あんぱん','食パン']],
+  ['大豆製品',['納豆','豆腐','油揚げ','厚揚げ']],
+  ['惣菜',['コロッケ','天ぷら','イカ天','惣菜','漬物','野沢菜']],
+  ['冷食',['冷凍','アイス']],
+  ['麺',['ラーメン','うどん','そば','そうめん','やきそば','パスタ','麺']],
+  ['菓子',['おかし','お菓子','チョコ','クッキー','せんべい','スナック']],
+  ['飲料',['コーヒー','お茶','紅茶','ジュース','水','飲料']],
+  ['粉・乾物',['片栗粉','小麦粉','パン粉','ひじき','わかめ','乾物','昆布','のり','切り干し']],
+  ['缶詰',['缶','ツナ']],
+  ['調味料',['しょうゆ','醤油','みそ','味噌','みりん','酢','砂糖','塩','だし','ソース','マヨ','ポン酢','油','カレー','コンソメ']],
+  ['日用品',['トイレ','ティッシュ','ペーパー','洗剤','ラップ','歯','電池','ネット']],
 ];
-let seq=1;
-let catalog=RAW.map(([zone,name,qty],i)=>({id:seq++,name,zone,qty,checked:false,order:i,by:'me'}));
-let history=[{date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌'},{name:'りんご ×2'}]}];
-let currentWho='me',editing=null,editZone='その他',editQty=0,activeTab='list';
+function guessType(n){for(const[t,ws]of TYPEKW){if(ws.some(w=>n.includes(w)))return t;}return zoneDefaultType[guessZone(n)]||'その他';}
 
-/* ===== Supabase 同期（URLとキーを入れると二人共有が点灯。空なら単体で動く） ===== */
-const SB={ url:'', key:'', client:null, ready(){return !!this.client;} };
-function initDB(){ if(SB.url&&SB.key&&window.supabase){ try{SB.client=window.supabase.createClient(SB.url,SB.key);}catch(e){console.error(e);SB.client=null;} } }
-function toRow(it){ return {name:it.name,zone:it.zone,qty:it.qty,ord:it.order,checked:it.checked,added_by:it.by||currentWho}; }
-async function seedIfEmpty(){
-  const {count}=await SB.client.from('shopping_items').select('*',{count:'exact',head:true});
-  if(count&&count>0) return;
-  const rows=RAW.map(([zone,name,qty],i)=>({name,zone,qty,ord:i,checked:false,added_by:'me'}));
-  await SB.client.from('shopping_items').insert(rows);
-}
-async function loadAll(){
-  const {data,error}=await SB.client.from('shopping_items').select('*').order('ord',{ascending:true});
-  if(error){console.error(error);return;}
-  catalog=data.map(r=>({id:r.id,name:r.name,zone:r.zone,qty:r.qty,checked:r.checked,order:r.ord,by:r.added_by||'me'}));
-}
-async function loadHistory(){
-  if(!SB.ready())return;
-  const {data,error}=await SB.client.from('shopping_history').select('*').order('created_at',{ascending:false});
-  if(error){console.error(error);return;}
-  const map=new Map();
-  for(const r of data){ if(!map.has(r.bought_on_label))map.set(r.bought_on_label,[]); map.get(r.bought_on_label).push({name:r.name}); }
-  history=[...map.entries()].map(([date,list])=>({date,list}));
-}
-function sbUpdate(it){ if(!SB.ready())return; SB.client.from('shopping_items').update(toRow(it)).eq('id',it.id).then(({error})=>{if(error)console.error(error);}); }
-function sbDelete(id){ if(!SB.ready())return; SB.client.from('shopping_items').delete().eq('id',id).then(({error})=>{if(error)console.error(error);}); }
-function sbHistory(label,names){ if(!SB.ready())return; SB.client.from('shopping_history').insert(names.map(n=>({bought_on_label:label,name:n}))).then(({error})=>{if(error)console.error(error);}); }
-function renderActive(){ if(activeTab==='list')renderList(); else if(activeTab==='edit')renderEdit(); else if(activeTab==='item')renderItems(); else if(activeTab==='hist')renderHist(); }
-function subscribe(){
-  if(!SB.ready())return;
-  SB.client.channel('rt-items').on('postgres_changes',{event:'*',schema:'public',table:'shopping_items'},async()=>{ await loadAll(); renderActive(); }).subscribe();
-  SB.client.channel('rt-hist').on('postgres_changes',{event:'*',schema:'public',table:'shopping_history'},async()=>{ await loadHistory(); if(activeTab==='hist')renderHist(); }).subscribe();
-}
-async function init(){
-  initDB();
-  if(SB.ready()){ try{ await seedIfEmpty(); await loadAll(); await loadHistory(); }catch(e){ console.error(e); } renderList(); subscribe(); }
-  else { renderList(); }
-}
+/* ===== 定番品（zone,name,type,qty） ===== */
+const RAW=[
+  ['A','トイレットペーパー','日用品',0],['A','キッチンペーパー','日用品',0],['A','ティッシュ','日用品',0],
+  ['B','りんご','果物',0],['B','ブロッコリー','野菜',1],['B','トマト','野菜',2],['B','きゅうり','野菜',0],['B','ほうれん草','野菜',1],['B','小松菜','野菜',1],
+  ['B','じゃがいも','野菜',0],['B','玉ねぎ','野菜',2],['B','にんじん','野菜',2],['B','しょうが','野菜',0],['B','大豆','粉・乾物',0],['B','小豆','粉・乾物',0],['B','ネギ','野菜',1],
+  ['C','しめじ','きのこ',0],['C','えのき','きのこ',0],['C','みつば','野菜',1],['C','バナナ','果物',2],['C','キャベツ（半）','野菜',1],['C','大根（半）','野菜',1],['C','なめこ','きのこ',1],
+  ['D','あんぱん','パン',1],['D','納豆','大豆製品',1],['D','豆腐','大豆製品',2],['D','油揚げ（中国産）','大豆製品',0],['D','油揚げ（国産）','大豆製品',0],
+  ['②-2','玄米フレーク','その他',1],['②-1','食器洗剤','日用品',1],['②-1','サランラップ','日用品',0],['②-1','クッキングシート','日用品',0],['②-1','アルミホイル','日用品',0],
+  ['①-2','歯ブラシ','日用品',0],['①-2','歯磨き粉 クリニカ','日用品',0],['①-1','冷凍うどん','冷食',0],['H','浅型排水用ネット','日用品',0],
+  ['G','牛乳','乳製品',0],['G','イカ天','惣菜',1],['G','コロッケ','惣菜',1],['G','チーズ QBB','乳製品',0],['G','チーズ 雪印','乳製品',0],['G','野沢菜','惣菜',0],
+  ['G','ヨーグルト','乳製品',1],['G','やきそば','麺',2],['G','ラーメン汁','調味料',0],['G','ラーメン','麺',0],
+  ['F','鶏胸肉つくば鶏','肉',1],['F','豚コマ','肉',1],
+  ['E','いわし（生）','魚',5],['E','アジ開き','魚',1],['E','鰹のたたき','魚',2],['E','お刺身','魚',0],['E','鮭','魚',1],['E','塩サバ','魚',0],['E','しらす','魚',1],
+  ['③-1','おかし','菓子',1],['④-1','コーヒー','飲料',0],
+  ['④-2','片栗粉','粉・乾物',0],['④-2','パン粉','粉・乾物',0],['④-2','ひじき','粉・乾物',0],['④-2','わかめ（乾燥）','粉・乾物',1],['④-2','切り干し大根','粉・乾物',1],
+  ['⑤-1','みそ','調味料',0],['⑤-1','だしパック','調味料',0],['⑤-1','コンソメの素','調味料',0],['⑤-1','おかか','調味料',0],['⑤-2','カレー','調味料',1],
+  ['⑥-1','しょうゆ','調味料',0],['⑥-1','みりん','調味料',0],['⑥-1','ポン酢','調味料',1],['⑥-1','料理酒','調味料',0],['⑥-1','そうめん','麺',0],['⑥-1','そば','麺',0],['⑥-1','玄米酢','調味料',0],
+  ['⑥-2','砂糖','調味料',0],['⑥-2','さば缶','缶詰',0],['⑦-1','マヨネーズ','調味料',1],['⑦-1','卵','卵',1],
+];
+let uidSeq=1;
+let catalog=RAW.map(([zone,name,type,qty],i)=>({uid:uidSeq++,id:i+1,name,type,zone,price:0,qty,done:false}));
+
+let history=[{date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌'},{name:'りんご ×2'}]}];
+let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editZone='その他',editType='その他',editQty=0;
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
-const byOrder=(a,b)=>a.order-b.order;
-const sorted=()=>[...catalog].sort(byOrder);
-function badge(z){const f=FAM[z.fam];return `<span class="badge" style="background:${f.bg};color:${f.ink}">${esc(z.code)}</span>`;}
-function runs(items){const r=[];for(const it of items){if(!r.length||r[r.length-1].zone!==it.zone)r.push({zone:it.zone,items:[it]});else r[r.length-1].items.push(it);}return r;}
+const yen=n=>'¥'+(n||0).toLocaleString('ja-JP');
+function bdg(code,cls){const z=zoneOf(code),f=FAM[z.fam];return `<span class="${cls||'badge'}" style="background:${f.bg};color:${f.ink}">${esc(code)}</span>`;}
 
-/* ---- LIST (お店で) ---- */
+const SORTLABELS=[['zone','売り場順'],['id','番号順'],['type','種別順'],['price','単価順'],['name','名前順']];
+function fillSort(sel,val){sel.innerHTML=SORTLABELS.map(([v,l])=>`<option value="${v}" ${v===val?'selected':''}>${l}</option>`).join('');}
+
+function sortItems(items,key){
+  const z=i=>(zoneIdx[i.zone]??999), t=i=>(typeIdx[i.type]??999);
+  const cmp={
+    zone:(a,b)=>z(a)-z(b)||a.id-b.id,
+    id:(a,b)=>a.id-b.id,
+    type:(a,b)=>t(a)-t(b)||z(a)-z(b)||a.id-b.id,
+    price:(a,b)=>(b.price||0)-(a.price||0)||a.id-b.id,
+    name:(a,b)=>a.name.localeCompare(b.name,'ja')||a.id-b.id,
+  };
+  return [...items].sort(cmp[key]||cmp.zone);
+}
+function groupItems(items,key){
+  if(key==='zone'){const out=[];let c=null;for(const it of items){if(!c||c.code!==it.zone){c={kind:'zone',code:it.zone,items:[]};out.push(c);}c.items.push(it);}return out;}
+  if(key==='type'){const out=[];let c=null;for(const it of items){if(!c||c.name!==it.type){c={kind:'type',name:it.type,items:[]};out.push(c);}c.items.push(it);}return out;}
+  return [{kind:null,items}];
+}
+function groupHeader(g){
+  if(g.kind==='zone'){const z=zoneOf(g.code);return `<div class="grphead">${bdg(g.code)}<span class="nm">${esc(z.label)}</span><span class="ln"></span></div>`;}
+  if(g.kind==='type')return `<div class="grphead"><span class="nm" style="font-size:13px;color:var(--green-d)">${esc(g.name)}</span><span class="ln"></span></div>`;
+  return '';
+}
+const tripTotal=()=>catalog.filter(i=>i.qty>0).reduce((s,i)=>s+(i.price||0)*i.qty,0);
+
+/* ===== LIST ===== */
 function renderList(){
-  const trip=sorted().filter(i=>i.qty>0);
-  const done=trip.filter(i=>i.checked).length;
-  $('#remain').textContent=trip.length-done; $('#remain2').textContent=trip.length-done;
-  $('#progTxt').textContent=`${done}/${trip.length}`;
-  $('#barFill').style.width=trip.length?(done/trip.length*100)+'%':'0%';
-  $('#checkoutBtn').disabled=done===0;
-  $('#checkoutTxt').textContent=done>0?`カゴの ${done}こ を記録する`:'カゴに入れたものを記録';
+  const trip=catalog.filter(i=>i.qty>0);
+  const todo=trip.filter(i=>!i.done), done=trip.filter(i=>i.done);
+  $('#remain').textContent=todo.length;
+  $('#listTotal').textContent=yen(tripTotal());
+  $('#checkoutBtn').disabled=done.length===0;
+  $('#checkoutTxt').textContent=done.length>0?`カゴの ${done.length}こ を記録する`:'カゴに入れたものを記録';
+  const show=listSeg==='todo'?todo:done;
   const area=$('#listArea');
-  if(trip.length===0){area.innerHTML=`<div class="empty"><div class="e">🛒</div>今回の買うものが まだないよ<br>「編集」で こすうを つけてね</div>`;return;}
+  if(show.length===0){area.innerHTML=`<div class="empty"><div class="e">${listSeg==='todo'?'🛒':'✅'}</div>${listSeg==='todo'?'未終了は ありません<br>「編集」で こすうを つけてね':'まだ 完了した品は ないよ'}</div>`;return;}
+  const showBadge=listSort!=='zone';
   let html='';
-  for(const run of runs(trip.sort((a,b)=>(a.checked-b.checked)||(a.order-b.order)).sort(byOrder))){
-    const z=zoneOf(run.zone);
-    html+=`<div class="zone"><div class="zonehead">${badge(z)}<span class="nm">${esc(z.label)}</span><span class="ln"></span></div>`;
-    for(const it of run.items){
-      html+=`<div class="srow ${it.checked?'done':''}" data-id="${it.id}"><div class="check"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="body"><span class="nm">${esc(it.name)}</span>${it.qty>1?`<span class="qty">×${it.qty}</span>`:''}</div></div>`;
+  for(const g of groupItems(sortItems(show,listSort),listSort)){
+    html+='<div class="grp">'+groupHeader(g);
+    for(const it of g.items){
+      const hot=it.qty>=2;
+      html+=`<div class="srow ${it.done?'done':''} ${hot?'hot':''}" data-uid="${it.uid}">
+        <div class="check"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="body"><span class="nm">${esc(it.name)}</span>${it.qty>1?`<span class="qty">×${it.qty}</span>`:''}</div>
+        ${showBadge?bdg(it.zone,'bdg'):''}</div>`;
     }
-    html+=`</div>`;
+    html+='</div>';
   }
   area.innerHTML=html;
 }
 
-/* ---- EDIT (個数＋並び替え) ---- */
+/* ===== EDIT ===== */
 function renderEdit(){
   $('#tripCount').textContent=catalog.filter(i=>i.qty>0).length;
-  const list=sorted(); const area=$('#editArea'); let html='';
-  for(const run of runs(list)){
-    const z=zoneOf(run.zone);
-    html+=`<div class="zone"><div class="zonehead">${badge(z)}<span class="nm">${esc(z.label)}</span><span class="ln"></span></div>`;
-    for(const it of run.items){
-      html+=`<div class="erow ${it.qty>0?'has':''}" data-id="${it.id}">
-        <div class="ord"><button data-act="up">▲</button><button data-act="down">▼</button></div>
+  $('#editTotal').textContent=yen(tripTotal());
+  const showBadge=editSort!=='zone';
+  let html='';
+  for(const g of groupItems(sortItems(catalog,editSort),editSort)){
+    html+='<div class="grp">'+groupHeader(g);
+    for(const it of g.items){
+      const hot=it.qty>=2;
+      html+=`<div class="erow ${it.qty>0?'has':''} ${hot?'hot':''}" data-uid="${it.uid}">
+        ${showBadge?bdg(it.zone,'bdg'):''}
         <div class="nm">${esc(it.name)}</div>
         <div class="stepper"><button data-act="minus">−</button><span class="v">${it.qty}</span><button data-act="plus">＋</button></div></div>`;
     }
-    html+=`</div>`;
+    html+='</div>';
   }
-  area.innerHTML=html;
-}
-function moveItem(id,dir){
-  const s=sorted(); const i=s.findIndex(x=>x.id===id); const j=dir<0?i-1:i+1;
-  if(j<0||j>=s.length)return;
-  const a=s[i].order; s[i].order=s[j].order; s[j].order=a;
-  sbUpdate(s[i]); sbUpdate(s[j]);
-  renderEdit();
+  $('#editArea').innerHTML=html;
 }
 
-/* ---- ITEM (品目登録簿) ---- */
+/* ===== ITEM ===== */
 function renderItems(){
-  const area=$('#itemArea'); let html='';
-  for(const run of runs(sorted())){
-    const z=zoneOf(run.zone);
-    html+=`<div class="zone"><div class="zonehead">${badge(z)}<span class="nm">${esc(z.label)}</span><span class="ln"></span></div>`;
-    for(const it of run.items){
-      html+=`<div class="irow" data-id="${it.id}"><span class="nm">${esc(it.name)}</span><span class="edit">編集 ›</span></div>`;
+  $('#itemCount').textContent=catalog.length;
+  let html='';
+  for(const g of groupItems(sortItems(catalog,itemSort),itemSort)){
+    html+='<div class="grp">'+groupHeader(g);
+    for(const it of g.items){
+      html+=`<div class="irow" data-uid="${it.uid}">
+        <span class="idn">${it.id}</span>${bdg(it.zone,'bdg')}
+        <span class="nm">${esc(it.name)}</span>
+        <span class="type">${esc(it.type)}</span>
+        <span class="price">${it.price>0?yen(it.price):'¥—'}</span></div>`;
     }
-    html+=`</div>`;
+    html+='</div>';
   }
-  area.innerHTML=html;
+  $('#itemArea').innerHTML=html;
 }
 
 function renderHist(){
@@ -390,83 +445,148 @@ function renderHist(){
   for(const d of history){html+=`<div class="daygroup"><div class="dayhead">${esc(d.date)}</div>`;for(const it of d.list){html+=`<div class="hitem"><span class="dot"></span><span class="hn">${esc(it.name)}</span></div>`;}html+=`</div>`;}
   area.innerHTML=html;
 }
+function renderActive(){if(activeTab==='list')renderList();else if(activeTab==='edit')renderEdit();else if(activeTab==='item')renderItems();else renderHist();}
 
-async function addItem(){
-  const inp=$('#addInput'),raw=inp.value.trim(); if(!raw)return;
-  let name=raw,qty=1; const m=raw.match(/^(.+?)\s*[×x*]?\s*(\d+)$/);
+/* ===== 追加・編集 ===== */
+function addItem(){
+  const inp=$('#addInput'),raw=inp.value.trim();if(!raw)return;
+  let name=raw,qty=1;const m=raw.match(/^(.+?)\s*[×x*]?\s*(\d+)$/);
   if(m){name=m[1].trim();qty=Math.min(99,parseInt(m[2]));}
-  const maxOrder=catalog.reduce((a,b)=>Math.max(a,b.order),-1);
-  const zone=guessZone(name);
-  const it={id:null,name,zone,qty,checked:false,order:maxOrder+1,by:currentWho};
-  if(SB.ready()){
-    const {data,error}=await SB.client.from('shopping_items').insert(toRow(it)).select().single();
-    if(error){console.error(error);toast('追加に失敗しました');return;}
-    it.id=data.id;
-  } else { it.id=seq++; }
-  catalog.push(it); inp.value=''; renderItems();
-  toast(`「${name}」を ${zoneOf(zone).code} に追加`);
+  const maxId=catalog.reduce((a,b)=>Math.max(a,b.id),0);
+  const zone=guessZone(name),type=guessType(name);
+  catalog.push({uid:uidSeq++,id:maxId+1,name,type,zone,price:0,qty,done:false});
+  inp.value='';renderItems();toast(`「${name}」を追加（${zoneOf(zone).code}／${type}）`);
 }
-let toastT; function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1800);}
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900);}
 
 function checkout(){
-  const done=catalog.filter(i=>i.qty>0&&i.checked); if(done.length===0)return;
+  const done=catalog.filter(i=>i.qty>0&&i.done);if(done.length===0)return;
   const now=new Date(),wd=['日','月','火','水','木','金','土'][now.getDay()];
   const dl=`${now.getMonth()+1}月${now.getDate()}日(${wd})`;
-  const entries=sorted().filter(i=>i.qty>0&&i.checked).map(i=>({name:i.qty>1?`${i.name} ×${i.qty}`:i.name}));
+  const entries=sortItems(done,'zone').map(i=>({name:i.qty>1?`${i.name} ×${i.qty}`:i.name}));
   const day=history.find(d=>d.date===dl);
   if(day){day.list=entries.concat(day.list);}else{history.unshift({date:dl,list:entries});}
-  if(SB.ready()) sbHistory(dl, entries.map(e=>e.name));
-  done.forEach(i=>{i.qty=0;i.checked=false; sbUpdate(i);});
-  renderList();renderHist(); toast(`${done.length}こ を記録しました 🎉`);
+  done.forEach(i=>{i.qty=0;i.done=false;});
+  renderList();renderHist();toast(`${done.length}こ を記録しました 🎉`);
 }
 
-function openEdit(it){editing=it;editZone=it.zone;editQty=it.qty;$('#editName').value=it.name;$('#qVal').textContent=editQty;renderZoneChips();$('#sheetBg').classList.add('open');$('#sheet').classList.add('open');}
-function closeEdit(){$('#sheetBg').classList.remove('open');$('#sheet').classList.remove('open');editing=null;}
-function renderZoneChips(){$('#zoneChips').innerHTML=ZONES.map(z=>`<button class="chip ${z.code===editZone?'on':''}" data-zone="${esc(z.code)}">${esc(z.code)} ${esc(z.label)}</button>`).join('');}
+function renumber(){
+  sortItems(catalog,'zone').forEach((it,i)=>it.id=i+1);
+  renderItems();toast('売り場順に番号を振り直しました');
+}
 
-/* events */
+function renderTypeChips(){$('#typeChips').innerHTML=TYPES.map(t=>`<button class="chip ${t===editType?'on':''}" data-type="${esc(t)}">${esc(t)}</button>`).join('');}
+function renderZoneChips(){$('#zoneChips').innerHTML=ZONES.map(z=>`<button class="chip ${z.code===editZone?'on':''}" data-zone="${esc(z.code)}">${esc(z.code)} ${esc(z.label)}</button>`).join('');}
+function openEdit(it){
+  editing=it;editZone=it.zone;editType=it.type;editQty=it.qty;
+  $('#fName').value=it.name;$('#fId').value=it.id;$('#fPrice').value=it.price||'';$('#qVal').textContent=editQty;
+  renderTypeChips();renderZoneChips();
+  $('#sheetBg').classList.add('open');$('#sheet').classList.add('open');
+}
+function closeEdit(){$('#sheetBg').classList.remove('open');$('#sheet').classList.remove('open');editing=null;}
+
+/* ===== 売り場の管理 ===== */
+function renderZoneAdmin(){
+  let html='';
+  ZONES.forEach((z,i)=>{
+    const f=FAM[z.fam];
+    html+=`<div class="zrow" data-i="${i}">
+      <button class="swatch" data-act="color" style="background:${f.bg}"></button>
+      <span class="zc">${esc(z.code)}</span>
+      <input data-act="label" value="${esc(z.label)}">
+      <button class="zbtn" data-act="up">▲</button>
+      <button class="zbtn" data-act="down">▼</button>
+      <button class="zbtn del" data-act="del">✕</button></div>`;
+  });
+  $('#zoneAdminArea').innerHTML=html;
+}
+function openZoneAdmin(){renderZoneAdmin();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
+function closeZoneAdmin(){$('#zoneBg').classList.remove('open');$('#zoneSheet').classList.remove('open');recomputeZones();renderActive();}
+
+/* ===== events ===== */
 $('#addBtn').addEventListener('click',addItem);
 $('#addInput').addEventListener('keydown',e=>{if(e.key==='Enter')addItem();});
-$('#whoSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;currentWho=b.dataset.who;[...$('#whoSeg').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');});
+$('#renumBtn').addEventListener('click',renumber);
 
 document.querySelector('.tabs').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   [...document.querySelector('.tabs').children].forEach(x=>x.classList.remove('active'));b.classList.add('active');
-  const t=b.dataset.tab;
-  $('#listTab').classList.toggle('hidden',t!=='list');
-  $('#editTab').classList.toggle('hidden',t!=='edit');
-  $('#itemTab').classList.toggle('hidden',t!=='item');
-  $('#histTab').classList.toggle('hidden',t!=='hist');
-  $('#footer').classList.toggle('hidden',t!=='list');
-  activeTab=t;
-  if(t==='list')renderList(); else if(t==='edit')renderEdit(); else if(t==='item')renderItems();
-  else if(t==='hist'){ if(SB.ready()) loadHistory().then(renderHist); else renderHist(); }
+  activeTab=b.dataset.tab;
+  $('#listTab').classList.toggle('hidden',activeTab!=='list');
+  $('#editTab').classList.toggle('hidden',activeTab!=='edit');
+  $('#itemTab').classList.toggle('hidden',activeTab!=='item');
+  $('#histTab').classList.toggle('hidden',activeTab!=='hist');
+  $('#footer').classList.toggle('hidden',activeTab!=='list');
+  renderActive();
 });
+
+$('#listSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;listSeg=b.dataset.seg;[...$('#listSeg').children].forEach(x=>x.classList.toggle('on',x===b));renderList();});
+$('#listSort').addEventListener('change',e=>{listSort=e.target.value;renderList();});
+$('#editSort').addEventListener('change',e=>{editSort=e.target.value;renderEdit();});
+$('#itemSort').addEventListener('change',e=>{itemSort=e.target.value;renderItems();});
 
 $('#editArea').addEventListener('click',e=>{
   const row=e.target.closest('.erow');if(!row)return;
-  const it=catalog.find(i=>i.id===+row.dataset.id);if(!it)return;
+  const it=catalog.find(i=>i.uid===+row.dataset.uid);if(!it)return;
   const act=e.target.closest('[data-act]')?.dataset.act;
-  if(act==='plus'){it.qty=Math.min(99,it.qty+1);sbUpdate(it);renderEdit();}
-  else if(act==='minus'){it.qty=Math.max(0,it.qty-1);sbUpdate(it);renderEdit();}
-  else if(act==='up'){moveItem(it.id,-1);}
-  else if(act==='down'){moveItem(it.id,1);}
+  if(act==='plus')it.qty=Math.min(99,it.qty+1);else if(act==='minus')it.qty=Math.max(0,it.qty-1);else return;
+  renderEdit();
 });
-$('#itemArea').addEventListener('click',e=>{const row=e.target.closest('.irow');if(!row)return;const it=catalog.find(i=>i.id===+row.dataset.id);if(it)openEdit(it);});
-$('#listArea').addEventListener('click',e=>{const row=e.target.closest('.srow');if(!row)return;const it=catalog.find(i=>i.id===+row.dataset.id);if(it){it.checked=!it.checked;sbUpdate(it);renderList();}});
+$('#itemArea').addEventListener('click',e=>{const row=e.target.closest('.irow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it)openEdit(it);});
+$('#listArea').addEventListener('click',e=>{const row=e.target.closest('.srow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it){it.done=!it.done;renderList();}});
 
 $('#checkoutBtn').addEventListener('click',checkout);
 $('#fsEnter').addEventListener('click',()=>document.body.classList.add('fs'));
 $('#fsExit').addEventListener('click',()=>document.body.classList.remove('fs'));
 
+/* item sheet */
 $('#sheetBg').addEventListener('click',closeEdit);
 $('#qMinus').addEventListener('click',()=>{editQty=Math.max(0,editQty-1);$('#qVal').textContent=editQty;});
 $('#qPlus').addEventListener('click',()=>{editQty=Math.min(99,editQty+1);$('#qVal').textContent=editQty;});
+$('#typeChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;editType=b.dataset.type;renderTypeChips();});
 $('#zoneChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;editZone=b.dataset.zone;renderZoneChips();});
-$('#saveBtn').addEventListener('click',()=>{if(!editing)return;editing.name=$('#editName').value.trim()||editing.name;editing.qty=editQty;editing.zone=editZone;sbUpdate(editing);closeEdit();renderItems();toast('保存しました');});
-$('#delBtn').addEventListener('click',()=>{if(!editing)return;const rid=editing.id;catalog=catalog.filter(i=>i.id!==rid);sbDelete(rid);closeEdit();renderItems();toast('削除しました');});
+$('#saveBtn').addEventListener('click',()=>{
+  if(!editing)return;
+  editing.name=$('#fName').value.trim()||editing.name;
+  const idv=parseInt($('#fId').value);if(!isNaN(idv))editing.id=idv;
+  const pv=parseInt($('#fPrice').value);editing.price=isNaN(pv)?0:Math.max(0,pv);
+  editing.type=editType;editing.zone=editZone;editing.qty=editQty;
+  closeEdit();renderItems();toast('保存しました');
+});
+$('#delBtn').addEventListener('click',()=>{if(!editing)return;const u=editing.uid;catalog=catalog.filter(i=>i.uid!==u);closeEdit();renderItems();toast('削除しました');});
 
-init();
+/* zone admin */
+$('#gearBtn').addEventListener('click',openZoneAdmin);
+$('#zoneDone').addEventListener('click',closeZoneAdmin);
+$('#zoneBg').addEventListener('click',closeZoneAdmin);
+$('#zAddBtn').addEventListener('click',()=>{
+  const code=$('#zAddCode').value.trim(),label=$('#zAddLabel').value.trim();
+  if(!code){toast('記号を入れてね');return;}
+  if(ZONES.some(z=>z.code===code)){toast('その記号はもうあるよ');return;}
+  ZONES.splice(ZONES.length-1,0,{code,label:label||code,fam:'etc'}); // その他の手前に
+  recomputeZones();$('#zAddCode').value='';$('#zAddLabel').value='';renderZoneAdmin();
+});
+$('#zoneAdminArea').addEventListener('click',e=>{
+  const btn=e.target.closest('[data-act]');if(!btn)return;
+  const row=e.target.closest('.zrow');const i=+row.dataset.i;const act=btn.dataset.act;
+  if(act==='up'&&i>0){[ZONES[i-1],ZONES[i]]=[ZONES[i],ZONES[i-1]];}
+  else if(act==='down'&&i<ZONES.length-1){[ZONES[i+1],ZONES[i]]=[ZONES[i],ZONES[i+1]];}
+  else if(act==='color'){const z=ZONES[i];z.fam=PALETTE[(PALETTE.indexOf(z.fam)+1)%PALETTE.length];}
+  else if(act==='del'){
+    if(ZONES[i].code==='その他'){toast('「その他」は消せないよ');return;}
+    const code=ZONES[i].code;catalog.forEach(it=>{if(it.zone===code)it.zone='その他';});
+    ZONES.splice(i,1);
+  } else return;
+  recomputeZones();renderZoneAdmin();
+});
+$('#zoneAdminArea').addEventListener('input',e=>{
+  const inp=e.target.closest('input[data-act="label"]');if(!inp)return;
+  const i=+e.target.closest('.zrow').dataset.i;ZONES[i].label=inp.value;
+});
+
+/* init */
+fillSort($('#listSort'),listSort);fillSort($('#editSort'),editSort);fillSort($('#itemSort'),itemSort);
+renderList();
 </script>
 </body>
 </html>
