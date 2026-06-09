@@ -188,6 +188,12 @@
   body.rev .toolrow{order:1;}
   body.rev #listArea{order:2;}
   body.rev #listSeg{order:3;margin-top:12px;margin-bottom:6px;}
+  body.rev{padding-bottom:46vh;}                 /* 下に死に余白＝最後の品も定位置に吸い寄せ */
+  .srow:active{transform:scale(.985);}
+  @keyframes poof{60%{opacity:.35;}100%{opacity:0;transform:scale(.72);}}
+  .srow.poof{animation:poof .14s ease forwards;pointer-events:none;}
+  @keyframes rowin{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  .srow.fresh{animation:rowin .12s ease;}
   .drag{width:24px;flex:none;display:grid;place-items:center;color:#c4bda9;font-size:18px;cursor:grab;touch-action:none;user-select:none;}
   .sortable-ghost{opacity:.35;}
   .sortable-chosen{box-shadow:0 0 0 2px var(--green);}
@@ -707,7 +713,16 @@ function applyReverse(){
   if(revMode){ lt.insertBefore(f,lt.firstChild); } else { document.body.appendChild(f); }
   const b=$('#revBtn'); if(b)b.classList.toggle('on',revMode);
 }
-function scrollBottom(){ requestAnimationFrame(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})); }
+function scrollBottom(){
+  requestAnimationFrame(()=>{
+    const rows=document.querySelectorAll('#listArea .srow');
+    if(!rows.length){ window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}); return; }
+    const last=rows[rows.length-1]; // 逆順なので最後＝次に取る品
+    const r=last.getBoundingClientRect();
+    const target=window.scrollY+r.bottom-window.innerHeight*0.66; // 指の届く下2/3あたりへ
+    window.scrollTo({top:Math.max(0,target),behavior:'smooth'});
+  });
+}
 function renderActive(){if(activeTab==='list')renderList();else if(activeTab==='edit')renderEdit();else if(activeTab==='item')renderItems();else renderHist();saveLocal();}
 
 /* ===== 追加・編集 ===== */
@@ -901,6 +916,7 @@ document.querySelector('.tabs').addEventListener('click',e=>{
   $('#histTab').classList.toggle('hidden',activeTab!=='hist');
   $('#footer').classList.toggle('hidden',activeTab!=='list');
   renderActive();
+  if(activeTab==='list'&&revMode)scrollBottom();
 });
 
 $('#listSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;listSeg=b.dataset.seg;[...$('#listSeg').children].forEach(x=>x.classList.toggle('on',x===b));renderList();});
@@ -948,8 +964,12 @@ $('#listArea').addEventListener('click',e=>{
   if(it.got>=need){ it.got=need;it.done=true;completed=true; }
   queueSet(it.uid,{got:it.got,done:it.done,picked_at:it.picked_at});
   haptic(completed?'done':'tap');
-  renderList();
-  if(completed&&revMode)scrollBottom();
+  if(completed){
+    row.classList.add('poof');
+    setTimeout(()=>{ renderList(); if(revMode)scrollBottom(); },140);
+  } else {
+    renderList();
+  }
 });
 
 $('#checkoutBtn').addEventListener('click',checkout);
