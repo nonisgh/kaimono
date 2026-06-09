@@ -187,13 +187,12 @@
   body.rev #footer .checkout{box-shadow:0 3px 0 var(--green-d);}
   body.rev .toolrow{order:1;}
   body.rev #listArea{order:2;}
-  body.rev #listSeg{order:3;margin-top:12px;margin-bottom:6px;}
-  body.rev{padding-bottom:46vh;}                 /* 下に死に余白＝最後の品も定位置に吸い寄せ */
+  body.rev #listArea{display:flex;flex-direction:column;justify-content:flex-end;min-height:calc(100svh - 120px);padding-bottom:23vh;}
+  body.rev #listSeg{position:fixed;left:50%;transform:translateX(-50%);bottom:12vh;width:min(496px,calc(100vw - 28px));z-index:40;box-shadow:0 6px 18px rgba(80,55,25,.18);margin:0;}
+  body.rev{padding-bottom:24px;}
   .srow:active{transform:scale(.985);}
   @keyframes poof{60%{opacity:.35;}100%{opacity:0;transform:scale(.72);}}
   .srow.poof{animation:poof .14s ease forwards;pointer-events:none;}
-  @keyframes rowin{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
-  .srow.fresh{animation:rowin .12s ease;}
   .drag{width:24px;flex:none;display:grid;place-items:center;color:#c4bda9;font-size:18px;cursor:grab;touch-action:none;user-select:none;}
   .sortable-ghost{opacity:.35;}
   .sortable-chosen{box-shadow:0 0 0 2px var(--green);}
@@ -713,16 +712,7 @@ function applyReverse(){
   if(revMode){ lt.insertBefore(f,lt.firstChild); } else { document.body.appendChild(f); }
   const b=$('#revBtn'); if(b)b.classList.toggle('on',revMode);
 }
-function scrollBottom(){
-  requestAnimationFrame(()=>{
-    const rows=document.querySelectorAll('#listArea .srow');
-    if(!rows.length){ window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}); return; }
-    const last=rows[rows.length-1]; // 逆順なので最後＝次に取る品
-    const r=last.getBoundingClientRect();
-    const target=window.scrollY+r.bottom-window.innerHeight*0.66; // 指の届く下2/3あたりへ
-    window.scrollTo({top:Math.max(0,target),behavior:'smooth'});
-  });
-}
+function scrollBottom(){ requestAnimationFrame(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})); }
 function renderActive(){if(activeTab==='list')renderList();else if(activeTab==='edit')renderEdit();else if(activeTab==='item')renderItems();else renderHist();saveLocal();}
 
 /* ===== 追加・編集 ===== */
@@ -973,7 +963,7 @@ $('#listArea').addEventListener('click',e=>{
 });
 
 $('#checkoutBtn').addEventListener('click',checkout);
-$('#fsEnter').addEventListener('click',()=>document.body.classList.add('fs'));
+$('#fsEnter').addEventListener('click',()=>{document.body.classList.add('fs');if(revMode)setTimeout(scrollBottom,80);});
 $('#revBtn').addEventListener('click',()=>{revMode=!revMode;localStorage.setItem('kaimono.rev',revMode?'1':'0');applyReverse();renderList();if(revMode)scrollBottom();});
 $('#histArea').addEventListener('click',e=>{
   const b=e.target.closest('.histdel');if(!b)return;
