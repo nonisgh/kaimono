@@ -788,11 +788,13 @@ let hapticOn=(localStorage.getItem('kaimono.haptic')??'1')==='1';
 function haptic(kind){
   if(!hapticOn)return;
   if(navigator.vibrate){ navigator.vibrate(kind==='ok'?[10,35,10]:kind==='done'?16:7); return; }
-  try{ // iOS Safari：switchトグルの裏ワザ
+  try{ // iOS Safari(18〜26.4)：switch+labelの裏ワザ。26.5以降はAppleが塞いだため不可
     const l=document.createElement('label');const c=document.createElement('input');
     c.type='checkbox';c.setAttribute('switch','');l.appendChild(c);
-    l.style.cssText='position:absolute;width:0;height:0;opacity:0;pointer-events:none;';
-    document.body.appendChild(l);l.click();setTimeout(()=>l.remove(),60);
+    l.style.cssText='position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0.001;pointer-events:none;z-index:-1;';
+    document.body.appendChild(l);
+    l.click();
+    setTimeout(()=>l.remove(),80);
   }catch(e){}
 }
 function renderHapticBtn(){const b=$('#hapticToggle');if(!b)return;b.classList.toggle('on',hapticOn);b.textContent=hapticOn?'📳 タップ振動：ON':'タップ振動：OFF';}
