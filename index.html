@@ -20,7 +20,7 @@
   html,body{margin:0;padding:0;}
   body{font-family:'Zen Maru Gothic',system-ui,sans-serif;
     background:radial-gradient(120% 80% at 50% -10%, #fff8ea 0%, var(--paper) 55%) fixed;
-    color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased;padding-bottom:120px;}
+    color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased;padding-bottom:140px;}
   .wrap{max-width:520px;margin:0 auto;padding:0 12px;}
 
   header{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,var(--paper) 72%, rgba(251,246,236,0));padding:12px 0 6px;}
@@ -119,7 +119,10 @@
   .empty{text-align:center;color:var(--ink-soft);padding:46px 20px;font-weight:500;line-height:1.7;}
   .empty .e{font-size:38px;margin-bottom:8px;}
 
-  .footer{position:fixed;left:0;right:0;bottom:0;z-index:50;padding:12px 12px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(0deg,var(--paper) 65%, rgba(251,246,236,0));pointer-events:none;}
+  .footer{position:fixed;left:0;right:0;bottom:0;z-index:50;padding:12px 12px calc(26px + env(safe-area-inset-bottom));background:linear-gradient(0deg,var(--paper) 70%, rgba(251,246,236,0));pointer-events:none;}
+  .bigq{display:flex;align-items:center;gap:8px;margin-top:5px;}
+  .bigq .dots{color:var(--hot);font-size:15px;letter-spacing:3px;line-height:1;word-break:break-all;}
+  .bigq .num{color:#fff;background:var(--hot);font-size:15px;font-weight:900;padding:2px 11px;border-radius:999px;flex:none;}
   .footer .inner{max-width:520px;margin:0 auto;pointer-events:auto;}
   .checkout{width:100%;border:0;font-family:inherit;font-weight:900;font-size:17px;color:#fff;background:var(--coral);padding:16px;border-radius:15px;cursor:pointer;box-shadow:0 4px 0 #b85733, 0 10px 24px -8px rgba(180,87,51,.5);transition:.1s;display:flex;align-items:center;justify-content:center;gap:8px;}
   .checkout:active{transform:translateY(3px);box-shadow:0 1px 0 #b85733;}
@@ -222,6 +225,10 @@
   <!-- EDIT -->
   <main id="editTab" class="hidden">
     <div class="addbar"><input id="editAddInput" type="text" placeholder="臨時の品を追加（例：牛乳）" enterkeyhint="done"><button class="addbtn" id="editAddBtn">追加</button></div>
+    <div style="display:flex;gap:8px;margin:0 0 4px;flex-wrap:wrap;">
+      <button class="ghostbtn" id="loadKeepBtn">★ 定番を読込</button>
+      <button class="ghostbtn" id="importRecentBtn">🕒 10日以内を取込</button>
+    </div>
     <div class="toolrow">
       <div class="count">今回 <b id="tripCount">0</b> 品 ・ 合計 <span class="yen" id="editTotal">¥0</span></div>
       <div style="display:flex;gap:6px;">
@@ -267,7 +274,8 @@
   <div class="field"><label>種別</label><div class="chips" id="typeChips"></div></div>
   <div class="field"><label>売り場</label><div class="chips" id="zoneChips"></div></div>
   <div class="field"><label>今回のこすう（0 なら買わない）</label><div class="qstep"><button id="qMinus">−</button><span class="v" id="qVal">0</span><button id="qPlus">＋</button></div></div>
-  <div class="field"><label>いつも買う（定番）</label><button id="keepToggle" class="keepbtn">いつも買う：OFF</button><div style="font-size:11px;color:var(--ink-soft);margin-top:6px;line-height:1.5;">ONにすると、クリア／アーカイブ後も この個数で自動で戻ります</div></div>
+  <div class="field"><label>いつも買う（定番）</label><button id="keepToggle" class="keepbtn">いつも買う：OFF</button><div style="font-size:11px;color:var(--ink-soft);margin-top:6px;line-height:1.5;">ONにすると、編集の「★定番を読込」ボタンでこの個数が入ります</div></div>
+  <div class="field"><label>編集リストでの表示</label><button id="hideToggle" class="keepbtn">表示する</button><div style="font-size:11px;color:var(--ink-soft);margin-top:6px;line-height:1.5;">非表示にすると編集リストに出ません（品目には残ります）</div></div>
   <div class="sheetbtns"><button class="b-del" id="delBtn">削除</button><button class="b-save" id="saveBtn">保存</button></div>
 </div>
 
@@ -412,7 +420,7 @@ let uidSeq=1;
 let catalog=RAW.map(([zone,name,type,qty],i)=>({uid:uidSeq++,id:i+1,name,type,zone,price:0,qty,done:false,keep:false,keepQty:0}));
 
 let history=[{bid:0,date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌'},{name:'りんご ×2'}]}];
-let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editZone='その他',editType='その他',editQty=0,editKeep=false;
+let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false;
 let itemSortables=[],zoneSortable=null,confirmCb=null,centerMode=false;
 
 /* ===== クラウド同期（Supabase）。url/key が入っていれば二人共有が点灯。空ならローカル動作 ===== */
@@ -427,7 +435,7 @@ function showSync(kind){ const d=document.getElementById('syncDot'); if(!d)retur
 function syncPulse(){ if(!SB.ready())return; lastWrite=Date.now(); showSync('up'); }
 function syncPulseDown(){ if(!SB.ready())return; showSync('down'); }
 
-function itemRow(it){return {item_no:it.id,name:it.name,category:it.type,zone_code:it.zone,price:it.price,qty:it.qty,done:it.done,keep:it.keep,keep_qty:it.keepQty};}
+function itemRow(it){return {item_no:it.id,name:it.name,category:it.type,zone_code:it.zone,price:it.price,qty:it.qty,done:it.done,keep:it.keep,keep_qty:it.keepQty,hidden:!!it.hidden};}
 function itemRowId(it){return Object.assign({id:it.uid},itemRow(it));}
 function zoneRow(z,i){return {code:z.code,label:z.label,color:z.fam,sort_order:i};}
 
@@ -435,6 +443,8 @@ function sbItemUpdate(it){ if(!SB.ready())return; syncPulse(); SB.client.from('i
 function sbItemDelete(uid){ if(!SB.ready())return; syncPulse(); SB.client.from('items').delete().eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
 async function sbItemInsert(it){ syncPulse(); const {data,error}=await SB.client.from('items').insert(itemRow(it)).select().single(); if(error){console.error(error);return null;} return data.id; }
 function sbItemsBulk(items){ if(!SB.ready()||!items.length)return; syncPulse(); SB.client.from('items').upsert(items.map(itemRowId)).then(r=>{if(r.error)console.error(r.error);}); }
+function sbSet(uid,fields){ if(!SB.ready())return; syncPulse(); SB.client.from('items').update(fields).eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
+function sbBulkSet(rows){ if(!SB.ready()||!rows.length)return; syncPulse(); SB.client.from('items').upsert(rows).then(r=>{if(r.error)console.error(r.error);}); }
 function sbZonesSaveAll(){ if(!SB.ready())return; syncPulse(); SB.client.from('zones').upsert(ZONES.map((z,i)=>zoneRow(z,i))).then(r=>{if(r.error)console.error(r.error);}); }
 function sbZoneUpdate(i){ if(!SB.ready())return; const z=ZONES[i]; if(!z)return; syncPulse(); SB.client.from('zones').update({label:z.label,color:z.fam,sort_order:i}).eq('code',z.code).then(r=>{if(r.error)console.error(r.error);}); }
 function sbZoneDelete(code){ if(!SB.ready())return; syncPulse(); SB.client.from('zones').delete().eq('code',code).then(r=>{if(r.error)console.error(r.error);}); }
@@ -444,13 +454,19 @@ function sbLogInsert(batchId,label,when,entries){ if(!SB.ready())return; syncPul
 function sbLogDelete(bid){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').delete().eq('batch_id',bid).then(r=>{if(r.error)console.error(r.error);}); }
 
 async function loadZones(){ const {data,error}=await SB.client.from('zones').select('*').order('sort_order'); if(error){console.error(error);return;} if(data&&data.length){ const seen=new Set(),arr=[]; for(const r of data){ if(seen.has(r.code))continue; seen.add(r.code); arr.push({code:r.code,label:r.label,fam:r.color}); } ZONES=arr; if(!ZONES.some(z=>z.code==='その他'))ZONES.push({code:'その他',label:'その他',fam:'etc'}); recomputeZones(); } }
-async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:r.id,id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0})); }
+async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:r.id,id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden})); }
 async function loadHistory(){ const {data,error}=await SB.client.from('purchase_log').select('*').order('archived_at',{ascending:false}); if(error){console.error(error);return;} const map=new Map(); for(const r of data){ if(!map.has(r.batch_id))map.set(r.batch_id,{bid:r.batch_id,date:r.label,list:[]}); map.get(r.batch_id).list.push({name:r.qty>1?`${r.name} ×${r.qty}`:r.name}); } history=[...map.values()]; }
 async function seedIfEmpty(){
   const z=await SB.client.from('zones').select('code',{count:'exact',head:true});
-  if(!z.count) await SB.client.from('zones').insert(ZONES.map((zz,i)=>zoneRow(zz,i)));
+  if(!z.error && z.count===0) await SB.client.from('zones').insert(ZONES.map((zz,i)=>zoneRow(zz,i)));
   const it=await SB.client.from('items').select('id',{count:'exact',head:true});
-  if(!it.count) await SB.client.from('items').insert(catalog.map(itemRow));
+  if(!it.error && it.count===0) await SB.client.from('items').insert(catalog.map(itemRow));
+}
+async function refresh(){
+  if(!SB.ready())return;
+  if(document.getElementById('sheet').classList.contains('open'))return; // 編集中は触らない
+  try{ if(!$('#zoneSheet').classList.contains('open')) await loadZones(); await loadItems(); await loadHistory(); }catch(e){console.error(e);}
+  syncPulseDown(); renderActive();
 }
 function syncRender(){ renderActive(); }
 function incoming(){ if(Date.now()-lastWrite>1500) syncPulseDown(); }
@@ -520,7 +536,7 @@ function renderList(){
     for(const it of g.items){
       const hot=it.qty>=2;const f=zoneColorOf(zoneOf(it.zone));
       html+=`<div class="srow ${it.done?'done':''} ${hot?'hot':''}" data-uid="${it.uid}" style="background:${f.bg};border-left:5px solid ${f.ink};">
-        <div class="body"><span class="nm">${esc(it.name)}</span>${it.qty>1?`<span class="qty">×${it.qty}</span>`:''}</div>
+        <div class="body"><span class="nm">${esc(it.name)}</span>${it.qty>1?`<div class="bigq"><span class="dots">${'●'.repeat(Math.min(it.qty,15))}</span><span class="num">${it.qty}こ</span></div>`:''}</div>
         ${showBadge?bdg(it.zone,'bdg'):''}</div>`;
     }
     html+='</div>';
@@ -534,7 +550,7 @@ function renderEdit(){
   $('#editTotal').textContent=yen(tripTotal());
   const showBadge=editSort!=='zone';
   let html='';
-  for(const g of groupItems(sortItems(catalog,editSort),editSort)){
+  for(const g of groupItems(sortItems(catalog.filter(i=>!i.hidden),editSort),editSort)){
     html+='<div class="grp">'+groupHeader(g);
     for(const it of g.items){
       const hot=it.qty>=2;
@@ -555,7 +571,7 @@ function onItemDrop(){
     const z=box.dataset.zone;
     box.querySelectorAll('.irow').forEach(row=>{const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it){if(z)it.zone=z;it.id=nid++;}});
   });
-  sbItemsBulk(catalog);
+  sbBulkSet(catalog.map(i=>({id:i.uid,item_no:i.id,zone_code:i.zone})));
   renderItems();
 }
 function initItemSortables(){
@@ -594,7 +610,7 @@ function renderHist(){
   for(const d of history){html+=`<div class="daygroup"><div class="dayhead"><span>${esc(d.date)}</span><button class="histdel" data-bid="${d.bid==null?'':d.bid}">✕ 消す</button></div>`;for(const it of d.list){html+=`<div class="hitem"><span class="dot"></span><span class="hn">${esc(it.name)}</span></div>`;}html+=`</div>`;}
   area.innerHTML=html;
 }
-function centerTop(){ const el=document.querySelector('#listArea .srow'); if(el)el.scrollIntoView({block:'center',behavior:'smooth'}); }
+function centerTop(){ const el=document.querySelector('#listArea .srow'); if(!el)return; requestAnimationFrame(()=>{ const r=el.getBoundingClientRect(); const y=window.scrollY+r.top-(window.innerHeight/2)+(r.height/2); window.scrollTo({top:Math.max(0,y),behavior:'smooth'}); }); }
 function renderActive(){if(activeTab==='list')renderList();else if(activeTab==='edit')renderEdit();else if(activeTab==='item')renderItems();else renderHist();}
 
 /* ===== 追加・編集 ===== */
@@ -610,8 +626,10 @@ async function addFrom(inputSel,after){
   catalog.push(it);inp.value='';after();toast(`「${name}」を追加（${zoneOf(zone).code}／${type}）`);
 }
 function clearAll(){
-  askConfirm('今回の「買うもの」を全部クリア','個数を0に戻します。★いつも買う（定番）は指定の個数で戻ります（品目リストは消えません）',()=>{
-    catalog.forEach(i=>{i.done=false;i.qty=i.keep?i.keepQty:0;});sbItemsBulk(catalog);renderEdit();toast('クリアしました');
+  askConfirm('今回の「買うもの」を全部クリア','個数をすべて0に戻します（品目リストは消えません）',()=>{
+    const changed=catalog.filter(i=>i.qty>0||i.done);
+    catalog.forEach(i=>{i.done=false;i.qty=0;});
+    sbBulkSet(changed.map(i=>({id:i.uid,qty:0,done:false})));renderEdit();toast('クリアしました');
   });
 }
 function askConfirm(title,msg,cb){confirmCb=cb;$('#confTitle').textContent=title;$('#confMsg').textContent=msg;$('#confBg').classList.add('open');$('#confSheet').classList.add('open');}
@@ -625,25 +643,43 @@ function checkout(){
   const entries=sd.map(i=>({name:i.qty>1?`${i.name} ×${i.qty}`:i.name}));
   const bid=Date.now();
   history.unshift({bid,date:label,list:entries});
-  if(SB.ready()) sbLogInsert(bid,label,now.toISOString(),sd.map(i=>({name:i.qty>1?`${i.name} ×${i.qty}`:i.name,qty:i.qty,price:i.price})));
-  done.forEach(i=>{i.done=false;i.qty=i.keep?i.keepQty:0;});
-  sbItemsBulk(done);
+  if(SB.ready()) sbLogInsert(bid,label,now.toISOString(),sd.map(i=>({name:i.name,qty:i.qty,price:i.price})));
+  done.forEach(i=>{i.done=false;i.qty=0;});
+  sbBulkSet(done.map(i=>({id:i.uid,qty:0,done:false})));
   renderList();renderHist();toast(`${done.length}こ をアーカイブしました 🎉`);
+}
+function loadKeep(){
+  const ks=catalog.filter(i=>i.keep);
+  if(!ks.length){toast('★定番がまだ無いよ（品目の編集でON）');return;}
+  ks.forEach(i=>{i.qty=i.keepQty;});
+  sbBulkSet(ks.map(i=>({id:i.uid,qty:i.qty})));
+  renderEdit();toast(`定番 ${ks.length}品 を読み込みました`);
+}
+async function importRecent(){
+  if(!SB.ready()){toast('同期ONのときに使えます');return;}
+  const since=new Date(Date.now()-10*864e5).toISOString();
+  const {data,error}=await SB.client.from('purchase_log').select('name,qty,archived_at').gte('archived_at',since);
+  if(error){console.error(error);toast('取込に失敗');return;}
+  const want=new Map(); for(const r of data){ want.set(r.name,Math.max(want.get(r.name)||0,r.qty||1)); }
+  const changed=[]; catalog.forEach(i=>{ if(want.has(i.name)){ i.qty=want.get(i.name); changed.push(i); } });
+  sbBulkSet(changed.map(i=>({id:i.uid,qty:i.qty})));
+  renderEdit();toast(`10日以内の ${changed.length}品 を取り込みました`);
 }
 
 function renumber(){
   sortItems(catalog,'zone').forEach((it,i)=>it.id=i+1);
-  sbItemsBulk(catalog);renderItems();toast('売り場順に番号を振り直しました');
+  sbBulkSet(catalog.map(i=>({id:i.uid,item_no:i.id})));renderItems();toast('売り場順に番号を振り直しました');
 }
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900);}
 
 function renderTypeChips(){$('#typeChips').innerHTML=TYPES.map(t=>`<button class="chip ${t===editType?'on':''}" data-type="${esc(t)}">${esc(t)}</button>`).join('');}
 function renderZoneChips(){$('#zoneChips').innerHTML=ZONES.map(z=>`<button class="chip ${z.code===editZone?'on':''}" data-zone="${esc(z.code)}">${esc(z.code)} ${esc(z.label)}</button>`).join('');}
 function renderKeepBtn(){const b=$('#keepToggle');b.classList.toggle('on',editKeep);b.textContent=editKeep?'★ いつも買う：ON':'いつも買う：OFF';}
+function renderHideBtn(){const b=$('#hideToggle');b.classList.toggle('on',!editHidden);b.textContent=editHidden?'非表示にする':'表示する';}
 function openEdit(it){
-  editing=it;editZone=it.zone;editType=it.type;editQty=it.qty;editKeep=it.keep;
+  editing=it;editZone=it.zone;editType=it.type;editQty=it.qty;editKeep=it.keep;editHidden=!!it.hidden;
   $('#fName').value=it.name;$('#fId').value=it.id;$('#fPrice').value=it.price||'';$('#qVal').textContent=editQty;
-  renderTypeChips();renderZoneChips();renderKeepBtn();
+  renderTypeChips();renderZoneChips();renderKeepBtn();renderHideBtn();
   $('#sheetBg').classList.add('open');$('#sheet').classList.add('open');
 }
 function closeEdit(){$('#sheetBg').classList.remove('open');$('#sheet').classList.remove('open');editing=null;}
@@ -683,10 +719,17 @@ function setZoneCode(i,newCode){
   catalog.forEach(it=>{if(it.zone===old)it.zone=newCode;});
   recomputeZones();renderZoneAdmin();
 }
-function openZoneAdmin(){renderZoneAdmin();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
+let zoneSnap=new Map();
+function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
 async function closeZoneAdmin(){
   $('#zoneBg').classList.remove('open');$('#zoneSheet').classList.remove('open');recomputeZones();
-  if(SB.ready()){ try{ await syncZonesFull(); sbItemsBulk(catalog); }catch(e){console.error(e);} }
+  if(SB.ready()){
+    try{
+      await syncZonesFull();
+      const ch=catalog.filter(i=>zoneSnap.get(i.uid)!==i.zone);
+      sbBulkSet(ch.map(i=>({id:i.uid,zone_code:i.zone})));
+    }catch(e){console.error(e);}
+  }
   renderActive();
 }
 
@@ -730,10 +773,10 @@ $('#editArea').addEventListener('pointerup',e=>{
     if(btn==='minus')it.qty=Math.max(0,it.qty-1);                                 // −ボタン
     else it.qty=Math.min(99,it.qty+1);                                            // ＋ボタン / 行タップ
   } else return;
-  sbItemUpdate(it);renderEdit();
+  sbSet(it.uid,{qty:it.qty});renderEdit();
 });
 $('#itemArea').addEventListener('click',e=>{if(e.target.closest('.drag'))return;const row=e.target.closest('.irow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it)openEdit(it);});
-$('#listArea').addEventListener('click',e=>{const row=e.target.closest('.srow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it){it.done=!it.done;sbItemUpdate(it);renderList();if(centerMode&&listSeg==='todo')centerTop();}});
+$('#listArea').addEventListener('click',e=>{const row=e.target.closest('.srow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it){it.done=!it.done;sbSet(it.uid,{done:it.done});renderList();if(centerMode&&listSeg==='todo')centerTop();}});
 
 $('#checkoutBtn').addEventListener('click',checkout);
 $('#fsEnter').addEventListener('click',()=>document.body.classList.add('fs'));
@@ -756,13 +799,18 @@ $('#qPlus').addEventListener('click',()=>{editQty=Math.min(99,editQty+1);$('#qVa
 $('#typeChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;editType=b.dataset.type;renderTypeChips();});
 $('#zoneChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;editZone=b.dataset.zone;renderZoneChips();});
 $('#keepToggle').addEventListener('click',()=>{editKeep=!editKeep;renderKeepBtn();});
+$('#hideToggle').addEventListener('click',()=>{editHidden=!editHidden;renderHideBtn();});
+$('#loadKeepBtn').addEventListener('click',loadKeep);
+$('#importRecentBtn').addEventListener('click',importRecent);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refresh(); });
+window.addEventListener('focus',refresh);
 $('#saveBtn').addEventListener('click',()=>{
   if(!editing)return;
   editing.name=$('#fName').value.trim()||editing.name;
   const idv=parseInt($('#fId').value);if(!isNaN(idv))editing.id=idv;
   const pv=parseInt($('#fPrice').value);editing.price=isNaN(pv)?0:Math.max(0,pv);
   editing.type=editType;editing.zone=editZone;editing.qty=editQty;
-  editing.keep=editKeep;editing.keepQty=editKeep?editQty:0;
+  editing.keep=editKeep;editing.keepQty=editKeep?editQty:0;editing.hidden=editHidden;
   sbItemUpdate(editing);
   closeEdit();renderItems();toast('保存しました');
 });
