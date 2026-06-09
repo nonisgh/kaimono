@@ -80,7 +80,7 @@
   .erow .bdg{font-size:11px;font-weight:900;padding:3px 7px;border-radius:7px;flex:none;}
   .erow .nm{flex:1;min-width:0;font-size:20px;font-weight:700;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .erow.has .nm{color:var(--ink);} .erow.hot .nm{color:var(--hot);}
-  .erow .qbig{font-size:25px;font-weight:900;min-width:42px;text-align:center;color:#cbc4b2;line-height:1;}
+  .erow .qbig{font-size:25px;font-weight:900;min-width:46px;height:42px;display:flex;align-items:center;justify-content:center;text-align:center;color:#cbc4b2;line-height:1;background:var(--card);}
   .erow.has .qbig{color:var(--ink);} .erow.hot .qbig{color:var(--hot);}
   .erow .estep{display:flex;align-items:center;border:2px solid var(--line);border-radius:12px;overflow:hidden;flex:none;}
   .erow .estep button{width:42px;height:42px;border:0;background:var(--paper2);font-size:24px;font-weight:900;color:var(--green-d);font-family:inherit;line-height:1;cursor:pointer;}
@@ -187,6 +187,9 @@
   .keepbtn{font-family:inherit;font-weight:800;font-size:15px;border:2px solid var(--line);background:var(--card);color:var(--ink-soft);border-radius:12px;padding:13px 16px;cursor:pointer;width:100%;text-align:center;}
   .keepbtn.on{background:#f6ecd2;border-color:#d9a441;color:#9a6f2e;}
   .irow .star{color:#d9a441;font-size:13px;flex:none;}
+  .irow .starbtn{border:0;background:none;font-size:21px;line-height:1;color:#d8c9a8;cursor:pointer;flex:none;padding:2px 4px;-webkit-tap-highlight-color:transparent;}
+  .irow .starbtn.on{color:#e0a52e;}
+  .irow .starbtn:active{transform:scale(1.25);}
   .hidden{display:none !important;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.3/Sortable.min.js"></script>
@@ -214,7 +217,7 @@
   <!-- LIST -->
   <main id="listTab">
     <div class="toolrow">
-      <div class="count">のこり <b id="remain">0</b> 品 ・ 合計 <span class="yen" id="listTotal">¥0</span></div>
+      <div class="count">のこり <b id="remain">0</b> 品 ・ 合計(税込) <span class="yen" id="listTotal">¥0</span></div>
       <div style="display:flex;gap:6px;">
         <select class="sortsel" id="listSort"></select>
         <button class="ghostbtn" id="centerBtn">🎯 センター</button>
@@ -233,7 +236,7 @@
       <button class="ghostbtn" id="importRecentBtn">🕒 10日以内を取込</button>
     </div>
     <div class="toolrow">
-      <div class="count">今回 <b id="tripCount">0</b> 品 ・ 合計 <span class="yen" id="editTotal">¥0</span></div>
+      <div class="count">今回 <b id="tripCount">0</b> 品 ・ 合計(税込) <span class="yen" id="editTotal">¥0</span></div>
       <div style="display:flex;gap:6px;">
         <select class="sortsel" id="editSort"></select>
         <button class="ghostbtn" id="clearBtn" style="color:var(--hot);border-color:#eebfb2;">全部クリア</button>
@@ -531,6 +534,7 @@ async function init(){
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const yen=n=>'¥'+(n||0).toLocaleString('ja-JP');
+const TAXR=1.1; const taxIncl=p=>Math.round((p||0)*TAXR);
 function bdg(code,cls){const z=zoneOf(code),f=zoneColorOf(z);return `<span class="${cls||'badge'}" style="background:${f.bg};color:${f.ink}">${esc(code)}</span>`;}
 
 const SORTLABELS=[['zone','売り場順'],['id','番号順'],['type','種別順'],['price','単価順'],['name','名前順']];
@@ -564,7 +568,7 @@ function renderList(){ saveLocal();
   const trip=catalog.filter(i=>i.qty>0);
   const todo=trip.filter(i=>!i.done), done=trip.filter(i=>i.done);
   $('#remain').textContent=todo.length;
-  $('#listTotal').textContent=yen(tripTotal());
+  $('#listTotal').textContent=yen(taxIncl(tripTotal()));
   $('#checkoutBtn').disabled=done.length===0;
   $('#checkoutTxt').textContent=done.length>0?`カゴの ${done.length}こ を記録する`:'カゴに入れたものを記録';
   const show=listSeg==='todo'?todo:done;
@@ -588,7 +592,7 @@ function renderList(){ saveLocal();
 /* ===== EDIT ===== */
 function renderEdit(){ saveLocal();
   $('#tripCount').textContent=catalog.filter(i=>i.qty>0).length;
-  $('#editTotal').textContent=yen(tripTotal());
+  $('#editTotal').textContent=yen(taxIncl(tripTotal()));
   const showBadge=editSort!=='zone';
   let html='';
   for(const g of groupItems(sortItems(catalog.filter(i=>!i.hidden),editSort),editSort)){
@@ -635,11 +639,11 @@ function renderItems(){ saveLocal();
       html+=`<div class="irow ${it.hidden?'dim':''}" data-uid="${it.uid}">
         ${draggable?'<span class="drag">≡</span>':''}
         <span class="idn" style="background:${f.bg};color:${f.ink}">${it.id}</span>${bdg(it.zone,'bdg')}
-        ${it.keep?'<span class="star">★</span>':''}
+        <button class="starbtn ${it.keep?'on':''}" data-act="keep">${it.keep?'★':'☆'}</button>
         <span class="nm">${esc(it.name)}</span>
         ${it.hidden?'<span class="hidetag">非表示</span>':''}
         <span class="type">${esc(it.type)}</span>
-        <span class="price">${it.price>0?yen(it.price):'¥—'}</span></div>`;
+        <span class="price">${it.price>0?yen(taxIncl(it.price)):'¥—'}</span></div>`;
     }
     html+='</div></div>';
   }
@@ -848,7 +852,19 @@ $('#editArea').addEventListener('pointerup',e=>{
   } else return;
   queueSet(it.uid,{qty:it.qty});renderEdit();
 });
-$('#itemArea').addEventListener('click',e=>{if(e.target.closest('.drag'))return;const row=e.target.closest('.irow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it)openEdit(it);});
+$('#itemArea').addEventListener('click',e=>{
+  if(e.target.closest('.drag'))return;
+  const row=e.target.closest('.irow');if(!row)return;
+  const it=catalog.find(i=>i.uid===+row.dataset.uid);if(!it)return;
+  if(e.target.closest('[data-act="keep"]')){
+    it.keep=!it.keep;
+    it.keepQty=it.keep?(it.keepQty>0?it.keepQty:(it.qty>0?it.qty:1)):0;
+    sbBulkSet([{id:it.uid,keep:it.keep,keep_qty:it.keepQty}]);
+    renderItems();toast(it.keep?`★定番に登録（${it.keepQty}こ）`:'定番から外しました');
+    return;
+  }
+  openEdit(it);
+});
 $('#listArea').addEventListener('click',e=>{const row=e.target.closest('.srow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it){it.done=!it.done;queueSet(it.uid,{done:it.done});renderList();if(centerMode&&listSeg==='todo')centerTop();}});
 
 $('#checkoutBtn').addEventListener('click',checkout);
