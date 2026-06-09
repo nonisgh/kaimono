@@ -868,7 +868,7 @@ function haptic(kind){
 function renderHapticBtn(){const b=$('#hapticToggle');if(!b)return;b.classList.toggle('on',hapticOn);b.textContent=hapticOn?'📳 タップ振動：ON':'タップ振動：OFF';}
 
 function renderTypeChips(){$('#typeChips').innerHTML=TYPES.map(t=>`<button class="chip ${t===editType?'on':''}" data-type="${esc(t)}">${esc(t)}</button>`).join('');}
-function renderZoneChips(){$('#zoneChips').innerHTML=ZONES.map(z=>`<button class="chip ${z.code===editZone?'on':''}" data-zone="${esc(z.code)}">${esc(z.code)} ${esc(z.label)}</button>`).join('');}
+function renderZoneChips(){$('#zoneChips').innerHTML=ZONES.map(z=>{const f=zoneColorOf(z);const on=z.code===editZone;const st=on?`background:${f.ink};border-color:${f.ink};color:#fff;`:`background:${f.bg};border-color:${f.ink};color:${f.ink};`;return `<button class="chip ${on?'on':''}" data-zone="${esc(z.code)}" style="${st}">${esc(z.code)} ${esc(z.label)}</button>`;}).join('');}
 function renderKeepBtn(){const b=$('#keepToggle');b.classList.toggle('on',editKeep);b.textContent=editKeep?'★ いつも買う：ON':'いつも買う：OFF';const w=$('#keepQtyWrap');if(w)w.style.display=editKeep?'block':'none';$('#qVal').textContent=editQty;}
 function renderHideBtn(){const b=$('#hideToggle');b.classList.toggle('on',!editHidden);b.textContent=editHidden?'非表示にする':'表示する';}
 function openEdit(it,lock){
