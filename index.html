@@ -300,6 +300,10 @@
   <h3>売り場の管理（回る順）</h3>
   <div class="addbar"><input id="zAddCode" type="text" placeholder="記号" style="flex:none;width:80px;"><input id="zAddLabel" type="text" placeholder="売り場の名前"><button class="addbtn" id="zAddBtn">追加</button></div>
   <div id="zoneAdminArea" style="margin-top:6px;"></div>
+  <div style="margin-top:14px;border-top:1.5px solid var(--line);padding-top:12px;">
+    <button id="hapticToggle" class="keepbtn">📳 タップ振動：ON</button>
+    <div style="font-size:11px;color:var(--ink-soft);margin-top:6px;line-height:1.5;">タップやカゴ入れのとき、軽く振動します（端末が対応している場合）</div>
+  </div>
   <div class="sheetbtns" style="margin-top:12px;"><button class="b-done" id="zoneDone">とじる</button></div>
 </div>
 
@@ -720,7 +724,7 @@ function checkout(){
   if(SB.ready()) sbLogInsert(bid,label,now.toISOString(),sd.map(i=>({name:i.name,qty:i.qty,price:i.price,zone:i.zone,itemId:i.uid,picked:i.picked_at})));
   done.forEach(i=>{i.done=false;i.qty=0;i.got=0;i.picked_at=null;});
   sbBulkSet(done.map(i=>({id:i.uid,qty:0,done:false,got:0,picked_at:null})));
-  renderList();renderHist();toast(`${done.length}こ をアーカイブしました 🎉`);
+  renderList();renderHist();haptic('ok');toast(`${done.length}こ をアーカイブしました 🎉`);
 }
 function loadKeep(){
   const ks=catalog.filter(i=>i.keep&&i.keepQty>0);
@@ -780,6 +784,18 @@ function dedupeItems(){
   });
 }
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900);}
+let hapticOn=(localStorage.getItem('kaimono.haptic')??'1')==='1';
+function haptic(kind){
+  if(!hapticOn)return;
+  if(navigator.vibrate){ navigator.vibrate(kind==='ok'?[10,35,10]:kind==='done'?16:7); return; }
+  try{ // iOS Safari：switchトグルの裏ワザ
+    const l=document.createElement('label');const c=document.createElement('input');
+    c.type='checkbox';c.setAttribute('switch','');l.appendChild(c);
+    l.style.cssText='position:absolute;width:0;height:0;opacity:0;pointer-events:none;';
+    document.body.appendChild(l);l.click();setTimeout(()=>l.remove(),60);
+  }catch(e){}
+}
+function renderHapticBtn(){const b=$('#hapticToggle');if(!b)return;b.classList.toggle('on',hapticOn);b.textContent=hapticOn?'📳 タップ振動：ON':'タップ振動：OFF';}
 
 function renderTypeChips(){$('#typeChips').innerHTML=TYPES.map(t=>`<button class="chip ${t===editType?'on':''}" data-type="${esc(t)}">${esc(t)}</button>`).join('');}
 function renderZoneChips(){$('#zoneChips').innerHTML=ZONES.map(z=>`<button class="chip ${z.code===editZone?'on':''}" data-zone="${esc(z.code)}">${esc(z.code)} ${esc(z.label)}</button>`).join('');}
@@ -829,7 +845,7 @@ function setZoneCode(i,newCode){
   recomputeZones();renderZoneAdmin();
 }
 let zoneSnap=new Map();
-function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
+function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();renderHapticBtn();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
 async function closeZoneAdmin(){
   $('#zoneBg').classList.remove('open');$('#zoneSheet').classList.remove('open');recomputeZones();
   if(SB.ready()){
@@ -884,7 +900,7 @@ $('#editArea').addEventListener('pointerup',e=>{
     if(btn==='minus')it.qty=Math.max(0,it.qty-1);                                 // −ボタン
     else it.qty=Math.min(99,it.qty+1);                                            // ＋ボタン / 行タップ
   } else return;
-  it.got=0;queueSet(it.uid,{qty:it.qty,got:0,done:false});it.done=false;renderEdit();
+  haptic();it.got=0;queueSet(it.uid,{qty:it.qty,got:0,done:false});it.done=false;renderEdit();
 });
 $('#itemArea').addEventListener('click',e=>{
   if(e.target.closest('.drag'))return;
@@ -894,7 +910,7 @@ $('#itemArea').addEventListener('click',e=>{
     it.keep=!it.keep;
     it.keepQty=it.keep?(it.keepQty>0?it.keepQty:(it.qty>0?it.qty:1)):0;
     sbBulkSet([{id:it.uid,keep:it.keep,keep_qty:it.keepQty}]);
-    renderItems();toast(it.keep?`★定番に登録（${it.keepQty}こ）`:'定番から外しました');
+    haptic();renderItems();toast(it.keep?`★定番に登録（${it.keepQty}こ）`:'定番から外しました');
     return;
   }
   openEdit(it);
@@ -902,7 +918,7 @@ $('#itemArea').addEventListener('click',e=>{
 $('#listArea').addEventListener('click',e=>{
   const row=e.target.closest('.srow');if(!row)return;
   const it=catalog.find(i=>i.uid===+row.dataset.uid);if(!it)return;
-  if(listSeg==='done'){ it.done=false;it.got=0;it.picked_at=null;queueSet(it.uid,{done:false,got:0,picked_at:null});renderList();return; } // 終了側タップで戻す
+  if(listSeg==='done'){ it.done=false;it.got=0;it.picked_at=null;queueSet(it.uid,{done:false,got:0,picked_at:null});haptic();renderList();return; } // 終了側タップで戻す
   const need=Math.max(1,it.qty);
   const wasZero=(it.got||0)===0;
   it.got=(it.got||0)+1;
@@ -910,6 +926,7 @@ $('#listArea').addEventListener('click',e=>{
   let completed=false;
   if(it.got>=need){ it.got=need;it.done=true;completed=true; }
   queueSet(it.uid,{got:it.got,done:it.done,picked_at:it.picked_at});
+  haptic(completed?'done':'tap');
   renderList();
   if(completed&&centerMode)centerTop();
 });
@@ -956,6 +973,7 @@ $('#delBtn').addEventListener('click',()=>{if(!editing)return;const u=editing.ui
 /* zone admin */
 $('#gearBtn').addEventListener('click',openZoneAdmin);
 $('#zoneDone').addEventListener('click',closeZoneAdmin);
+$('#hapticToggle').addEventListener('click',()=>{hapticOn=!hapticOn;localStorage.setItem('kaimono.haptic',hapticOn?'1':'0');renderHapticBtn();if(hapticOn)haptic('done');});
 $('#zoneBg').addEventListener('click',closeZoneAdmin);
 $('#zAddBtn').addEventListener('click',()=>{
   const code=$('#zAddCode').value.trim(),label=$('#zAddLabel').value.trim();
