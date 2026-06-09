@@ -31,10 +31,13 @@
   .gear{width:40px;height:40px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);font-size:19px;cursor:pointer;display:grid;place-items:center;}
   .gear:active{background:var(--paper2);}
   .headright{margin-left:auto;display:flex;align-items:center;gap:8px;}
-  .syncdot{width:26px;height:26px;display:none;place-items:center;position:relative;flex:none;}
-  .syncdot.on{display:grid;}
-  .syncdot span{font-size:13px;}
-  .syncdot::after{content:"";position:absolute;width:26px;height:26px;border:2px solid transparent;border-top-color:#7c9bc4;border-radius:50%;animation:spin .8s linear infinite;}
+  .syncdot{width:30px;height:26px;display:none;align-items:center;justify-content:center;position:relative;flex:none;font-size:14px;}
+  .syncdot.on{display:flex;}
+  .syncdot.up .ic{color:#7c9bc4;}
+  .syncdot.down .ic{color:#5b8a4f;}
+  .syncdot.up::after{content:"";position:absolute;width:24px;height:24px;border:2px solid transparent;border-top-color:#7c9bc4;border-radius:50%;animation:spin .8s linear infinite;}
+  .syncdot.down::after{content:"⬇";position:absolute;right:0;bottom:-1px;font-size:10px;font-weight:900;color:#5b8a4f;animation:dn .7s ease infinite;}
+  @keyframes dn{0%,100%{transform:translateY(-1px);}50%{transform:translateY(1px);}}
   @keyframes spin{to{transform:rotate(360deg);}}
   .ghostbtn.on{background:var(--green);color:#fff;border-color:var(--green);}
 
@@ -190,7 +193,7 @@
       <div class="logo">🧺</div>
       <div><h1>おかいものメモ</h1><div class="sub">売り場を回る順に</div></div>
       <div class="headright">
-        <div class="syncdot" id="syncDot"><span>☁</span></div>
+        <div class="syncdot" id="syncDot"><span class="ic">☁</span></div>
         <button class="gear" id="gearBtn" title="売り場の管理">⚙</button>
       </div>
     </div>
@@ -419,8 +422,10 @@ const SB={
   client:null, ready(){return !!this.client;}
 };
 function initDB(){ if(SB.url&&SB.key&&window.supabase){ try{SB.client=window.supabase.createClient(SB.url,SB.key);}catch(e){console.error(e);} } }
-let syncTimer;
-function syncPulse(){ if(!SB.ready())return; const d=document.getElementById('syncDot'); if(!d)return; d.classList.add('on'); clearTimeout(syncTimer); syncTimer=setTimeout(()=>d.classList.remove('on'),900); }
+let syncTimer,lastWrite=0;
+function showSync(kind){ const d=document.getElementById('syncDot'); if(!d)return; d.className='syncdot on '+kind; clearTimeout(syncTimer); syncTimer=setTimeout(()=>{d.className='syncdot';},900); }
+function syncPulse(){ if(!SB.ready())return; lastWrite=Date.now(); showSync('up'); }
+function syncPulseDown(){ if(!SB.ready())return; showSync('down'); }
 
 function itemRow(it){return {item_no:it.id,name:it.name,category:it.type,zone_code:it.zone,price:it.price,qty:it.qty,done:it.done,keep:it.keep,keep_qty:it.keepQty};}
 function itemRowId(it){return Object.assign({id:it.uid},itemRow(it));}
@@ -447,13 +452,14 @@ async function seedIfEmpty(){
   const it=await SB.client.from('items').select('id',{count:'exact',head:true});
   if(!it.count) await SB.client.from('items').insert(catalog.map(itemRow));
 }
-function syncRender(){ renderActive(); if($('#zoneSheet').classList.contains('open'))renderZoneAdmin(); }
+function syncRender(){ renderActive(); }
+function incoming(){ if(Date.now()-lastWrite>1500) syncPulseDown(); }
 function subscribe(){
   if(!SB.ready())return;
   SB.client.channel('rt')
-    .on('postgres_changes',{event:'*',schema:'public',table:'items'},async()=>{await loadItems();syncRender();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'zones'},async()=>{await loadZones();syncRender();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'purchase_log'},async()=>{await loadHistory();if(activeTab==='hist')renderHist();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'items'},async()=>{await loadItems();incoming();syncRender();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'zones'},async()=>{ if($('#zoneSheet').classList.contains('open'))return; await loadZones();incoming();syncRender(); })
+    .on('postgres_changes',{event:'*',schema:'public',table:'purchase_log'},async()=>{await loadHistory();incoming();if(activeTab==='hist')renderHist();})
     .subscribe();
 }
 async function init(){
@@ -645,9 +651,9 @@ function closeEdit(){$('#sheetBg').classList.remove('open');$('#sheet').classLis
 /* ===== 売り場の管理 ===== */
 function renderZoneAdmin(){
   let html='';
-  ZONES.forEach((z,i)=>{
+  ZONES.forEach((z)=>{
     const f=zoneColorOf(z);
-    html+=`<div class="zrow" data-i="${i}">
+    html+=`<div class="zrow" data-code="${esc(z.code)}">
       <span class="drag">≡</span>
       <button class="swatch" data-act="color" style="background:${f.ink}"></button>
       <input class="zcode" data-act="code" value="${esc(z.code)}">
@@ -657,6 +663,12 @@ function renderZoneAdmin(){
   $('#zoneAdminArea').innerHTML=html;
   if(zoneSortable){zoneSortable.destroy();zoneSortable=null;}
   if(typeof Sortable!=='undefined'){ zoneSortable=Sortable.create($('#zoneAdminArea'),{handle:'.drag',animation:150,onEnd:onZoneDrop}); }
+}
+function onZoneDrop(evt){
+  if(evt.oldIndex===evt.newIndex)return;
+  const m=ZONES.splice(evt.oldIndex,1)[0];
+  ZONES.splice(evt.newIndex,0,m);
+  recomputeZones();
 }
 let colorTarget=null;
 function renderColorGrid(){ $('#colorGrid').innerHTML=PALETTE.map(k=>`<button class="cswatch" data-color="${k}" style="background:${FAM[k].ink}"></button>`).join(''); }
@@ -670,10 +682,6 @@ function setZoneCode(i,newCode){
   ZONES[i].code=newCode;
   catalog.forEach(it=>{if(it.zone===old)it.zone=newCode;});
   recomputeZones();renderZoneAdmin();
-}
-function onZoneDrop(){
-  const order=[...document.querySelectorAll('#zoneAdminArea .zrow')].map(r=>ZONES[+r.dataset.i]);
-  ZONES=order;recomputeZones();renderZoneAdmin();
 }
 function openZoneAdmin(){renderZoneAdmin();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
 async function closeZoneAdmin(){
@@ -773,21 +781,22 @@ $('#zAddBtn').addEventListener('click',()=>{
 });
 $('#zoneAdminArea').addEventListener('click',e=>{
   const btn=e.target.closest('button[data-act]');if(!btn)return;
-  const i=+e.target.closest('.zrow').dataset.i;const act=btn.dataset.act;
+  const code=e.target.closest('.zrow').dataset.code;const i=ZONES.findIndex(z=>z.code===code);if(i<0)return;
+  const act=btn.dataset.act;
   if(act==='color'){openColorPicker(i);return;}
   if(act==='del'){
     if(ZONES[i].code==='その他'){toast('「その他」は消せないよ');return;}
-    const code=ZONES[i].code;catalog.forEach(it=>{if(it.zone===code)it.zone='その他';});
+    catalog.forEach(it=>{if(it.zone===code)it.zone='その他';});
     ZONES.splice(i,1);recomputeZones();renderZoneAdmin();
   }
 });
 $('#zoneAdminArea').addEventListener('input',e=>{
   const inp=e.target.closest('input[data-act="label"]');if(!inp)return;
-  const i=+e.target.closest('.zrow').dataset.i;ZONES[i].label=inp.value;
+  const code=e.target.closest('.zrow').dataset.code;const i=ZONES.findIndex(z=>z.code===code);if(i>=0)ZONES[i].label=inp.value;
 });
 $('#zoneAdminArea').addEventListener('change',e=>{
-  const codeInp=e.target.closest('input[data-act="code"]');
-  if(codeInp){const i=+e.target.closest('.zrow').dataset.i;setZoneCode(i,codeInp.value);}
+  const codeInp=e.target.closest('input[data-act="code"]');if(!codeInp)return;
+  const code=e.target.closest('.zrow').dataset.code;const i=ZONES.findIndex(z=>z.code===code);if(i>=0)setZoneCode(i,codeInp.value);
 });
 $('#colorGrid').addEventListener('click',e=>{const b=e.target.closest('.cswatch');if(!b||colorTarget==null)return;ZONES[colorTarget].fam=b.dataset.color;closeColorPicker();});
 $('#customColor').addEventListener('input',e=>{if(colorTarget!=null)ZONES[colorTarget].fam=e.target.value;});
