@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>おかいものメモ</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='15'%20fill='%237aa252'/%3E%3Cg%20fill='none'%20stroke='%23fff'%20stroke-width='4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M12%2016h6l4.6%2022h21'/%3E%3Cpath%20d='M20%2021h31l-4%2013H23.5'/%3E%3C/g%3E%3Ccircle%20cx='25'%20cy='45.5'%20r='3.6'%20fill='%23fff'/%3E%3Ccircle%20cx='43'%20cy='45.5'%20r='3.6'%20fill='%23fff'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -169,7 +170,10 @@
   .zrow input{flex:1;min-width:0;font-family:inherit;font-size:14px;font-weight:700;border:1.5px solid var(--line);background:var(--paper);border-radius:9px;padding:7px 9px;outline:none;}
   .zrow input:focus{border-color:var(--green);}
   .zrow .zcode{flex:none;width:62px;text-align:center;font-weight:900;}
-  .cswatch{width:38px;height:38px;border-radius:10px;border:2px solid rgba(0,0,0,.08);cursor:pointer;}
+  .cswatch{width:40px;height:40px;border-radius:10px;border:2.5px solid rgba(0,0,0,.12);cursor:pointer;display:grid;place-items:center;}
+  .cswatch .cdot{width:15px;height:15px;border-radius:50%;}
+  .cswatch.sel{outline:3px solid var(--green);outline-offset:2px;}
+  .prevchip{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:14px;padding:9px 16px;border-radius:999px;border:2px solid;}
   .zbtn{width:30px;height:30px;border:1.5px solid var(--line);background:var(--paper2);border-radius:8px;font-size:13px;font-weight:900;color:var(--green-d);cursor:pointer;font-family:inherit;flex:none;}
   .zbtn.del{color:var(--hot);}
 
@@ -334,7 +338,12 @@
   <div class="grab"></div>
   <h3>色をえらぶ</h3>
   <div class="chips" id="colorGrid"></div>
-  <div class="field" style="margin-top:16px;"><label>カスタム色</label><input type="color" id="customColor" style="width:70px;height:46px;padding:4px;border:2px solid var(--line);border-radius:12px;background:var(--card);"></div>
+  <div class="field" style="margin-top:16px;"><label>カスタム色（自動で二色になります）</label>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <input type="color" id="customColor" style="width:70px;height:46px;padding:4px;border:2px solid var(--line);border-radius:12px;background:var(--card);">
+      <div id="customPrev" class="prevchip">見本 ●</div>
+    </div>
+  </div>
   <div class="sheetbtns"><button class="b-done" id="colorDone">とじる</button></div>
 </div>
 
@@ -870,8 +879,9 @@ function onZoneDrop(evt){
   recomputeZones();
 }
 let colorTarget=null;
-function renderColorGrid(){ $('#colorGrid').innerHTML=PALETTE.map(k=>`<button class="cswatch" data-color="${k}" style="background:${FAM[k].ink}"></button>`).join(''); }
-function openColorPicker(i){colorTarget=i;renderColorGrid();const fam=ZONES[i].fam;$('#customColor').value=(typeof fam==='string'&&fam[0]==='#')?fam:'#88aa66';$('#colorBg').classList.add('open');$('#colorSheet').classList.add('open');}
+function renderColorGrid(){ const cur=colorTarget!=null?ZONES[colorTarget].fam:null; $('#colorGrid').innerHTML=PALETTE.map(k=>{const f=FAM[k];return `<button class="cswatch ${k===cur?'sel':''}" data-color="${k}" style="background:${f.bg};border-color:${f.ink}"><span class="cdot" style="background:${f.ink}"></span></button>`;}).join(''); }
+function updateCustomPrev(hex){ const f=zoneColorOf({fam:hex}); const p=$('#customPrev'); if(p){p.style.background=f.bg;p.style.borderColor=f.ink;p.style.color=f.ink;} }
+function openColorPicker(i){colorTarget=i;renderColorGrid();const fam=ZONES[i].fam;const hex=(typeof fam==='string'&&fam[0]==='#')?fam:'#88aa66';$('#customColor').value=hex;updateCustomPrev(hex);$('#colorBg').classList.add('open');$('#colorSheet').classList.add('open');}
 function closeColorPicker(){$('#colorBg').classList.remove('open');$('#colorSheet').classList.remove('open');colorTarget=null;renderZoneAdmin();}
 function setZoneCode(i,newCode){
   newCode=newCode.trim();const old=ZONES[i].code;
@@ -1048,7 +1058,7 @@ $('#zoneAdminArea').addEventListener('change',e=>{
   const code=e.target.closest('.zrow').dataset.code;const i=ZONES.findIndex(z=>z.code===code);if(i>=0)setZoneCode(i,codeInp.value);
 });
 $('#colorGrid').addEventListener('click',e=>{const b=e.target.closest('.cswatch');if(!b||colorTarget==null)return;ZONES[colorTarget].fam=b.dataset.color;closeColorPicker();});
-$('#customColor').addEventListener('input',e=>{if(colorTarget!=null)ZONES[colorTarget].fam=e.target.value;});
+$('#customColor').addEventListener('input',e=>{updateCustomPrev(e.target.value);if(colorTarget!=null)ZONES[colorTarget].fam=e.target.value;});
 $('#colorDone').addEventListener('click',closeColorPicker);
 $('#colorBg').addEventListener('click',closeColorPicker);
 
