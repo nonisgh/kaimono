@@ -950,7 +950,7 @@ $('#itemSort').addEventListener('change',e=>{itemSort=e.target.value;renderItems
 $('#histSort').addEventListener('change',e=>{histSort=e.target.value;renderHist();});
 
 let _sx=0,_sy=0,_su=null,_btn=null,_lpTimer=null,_lpFired=false;
-function startLongPress(uid){ _lpFired=false; clearTimeout(_lpTimer); _lpTimer=setTimeout(()=>{ _lpFired=true; const it=catalog.find(i=>i.uid===uid); if(it){ haptic('done'); openEdit(it,true); } },500); }
+function startLongPress(uid){ _lpFired=false; clearTimeout(_lpTimer); _lpTimer=setTimeout(()=>{ _lpFired=true; const it=catalog.find(i=>i.uid===uid); if(it){ haptic('done'); openEdit(it,true); } },1000); }
 function cancelLongPress(){ clearTimeout(_lpTimer); }
 $('#editArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.erow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;const b=e.target.closest('[data-act]');_btn=b?b.dataset.act:null;startLongPress(_su);});
 $('#editArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10||Math.abs(e.clientY-_sy)>10)cancelLongPress();});
