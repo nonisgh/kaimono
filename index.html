@@ -126,6 +126,7 @@
   .bigq{display:flex;align-items:center;gap:8px;margin-top:5px;}
   .bigq .dots{color:var(--hot);font-size:15px;letter-spacing:3px;line-height:1;word-break:break-all;}
   .bigq .num{color:#fff;background:var(--hot);font-size:15px;font-weight:900;padding:2px 11px;border-radius:999px;flex:none;}
+  .bigq.donef .num{background:var(--paper2);color:var(--ink-soft);}
   .footer .inner{max-width:520px;margin:0 auto;pointer-events:auto;}
   .checkout{width:100%;border:0;font-family:inherit;font-weight:900;font-size:17px;color:#fff;background:var(--coral);padding:16px;border-radius:15px;cursor:pointer;box-shadow:0 4px 0 #b85733, 0 10px 24px -8px rgba(180,87,51,.5);transition:.1s;display:flex;align-items:center;justify-content:center;gap:8px;}
   .checkout:active{transform:translateY(3px);box-shadow:0 1px 0 #b85733;}
@@ -448,7 +449,7 @@ function showSync(kind){ const d=document.getElementById('syncDot'); if(!d)retur
 function syncPulse(){ if(!SB.ready())return; lastWrite=Date.now(); showSync('up'); }
 function syncPulseDown(){ if(!SB.ready())return; showSync('down'); }
 
-function itemRow(it){return {item_no:it.id,name:it.name,category:it.type,zone_code:it.zone,price:it.price,qty:it.qty,done:it.done,keep:it.keep,keep_qty:it.keepQty,hidden:!!it.hidden};}
+function itemRow(it){return {item_no:it.id,name:it.name,category:it.type,zone_code:it.zone,price:it.price,qty:it.qty,done:it.done,keep:it.keep,keep_qty:it.keepQty,hidden:!!it.hidden,got:it.got||0};}
 function itemRowId(it){return Object.assign({id:it.uid},itemRow(it));}
 function zoneRow(z,i){return {code:z.code,label:z.label,color:z.fam,sort_order:i};}
 
@@ -467,7 +468,7 @@ function sbLogInsert(batchId,label,when,entries){ if(!SB.ready())return; syncPul
 function sbLogDelete(bid){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').delete().eq('batch_id',bid).then(r=>{if(r.error)console.error(r.error);}); }
 
 async function loadZones(){ const {data,error}=await SB.client.from('zones').select('*').order('sort_order'); if(error){console.error(error);return;} if(data&&data.length){ const seen=new Set(),arr=[]; for(const r of data){ if(seen.has(r.code))continue; seen.add(r.code); arr.push({code:r.code,label:r.label,fam:r.color}); } ZONES=arr; if(!ZONES.some(z=>z.code==='その他'))ZONES.push({code:'その他',label:'その他',fam:'etc'}); recomputeZones(); } }
-async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } }
+async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden,got:r.got||0})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } }
 async function loadHistory(){ const {data,error}=await SB.client.from('purchase_log').select('*').order('archived_at',{ascending:false}); if(error){console.error(error);return;} const map=new Map(); for(const r of data){ if(!map.has(r.batch_id))map.set(r.batch_id,{bid:r.batch_id,date:r.label,list:[]}); map.get(r.batch_id).list.push({name:r.qty>1?`${r.name} ×${r.qty}`:r.name,zone:r.zone_code||null,itemId:r.item_id??null}); } history=[...map.values()]; }
 async function seedIfEmpty(){
   const z=await SB.client.from('zones').select('code',{count:'exact',head:true});
@@ -585,9 +586,15 @@ function renderList(){ saveLocal();
   for(const g of groupItems(sortItems(show,listSort),listSort)){
     html+='<div class="grp">'+groupHeader(g);
     for(const it of g.items){
-      const hot=it.qty>=2;const f=zoneColorOf(zoneOf(it.zone));
+      const rem=Math.max(0,it.qty-(it.got||0));
+      const multi=it.qty>1;
+      const hot=!it.done&&rem>=2;
+      const f=zoneColorOf(zoneOf(it.zone));
+      let qhtml='';
+      if(!it.done&&multi){ qhtml=`<div class="bigq"><span class="dots">${'●'.repeat(Math.min(rem,15))}</span><span class="num">あと${rem}こ</span></div>`; }
+      else if(it.done&&multi){ qhtml=`<div class="bigq donef"><span class="num">${it.qty}こ</span></div>`; }
       html+=`<div class="srow ${it.done?'done':''} ${hot?'hot':''}" data-uid="${it.uid}" style="background:${f.bg};border-left:5px solid ${f.ink};">
-        <div class="body"><span class="nm">${esc(it.name)}</span>${it.qty>1?`<div class="bigq"><span class="dots">${'●'.repeat(Math.min(it.qty,15))}</span><span class="num">${it.qty}こ</span></div>`:''}</div>
+        <div class="body"><span class="nm">${esc(it.name)}</span>${qhtml}</div>
         ${showBadge?bdg(it.zone,'bdg'):''}</div>`;
     }
     html+='</div>';
@@ -693,9 +700,9 @@ async function addFrom(inputSel,after){
 }
 function clearAll(){
   askConfirm('今回の「買うもの」を全部クリア','個数をすべて0に戻します（品目リストは消えません）',()=>{
-    const changed=catalog.filter(i=>i.qty>0||i.done);
-    catalog.forEach(i=>{i.done=false;i.qty=0;});
-    sbBulkSet(changed.map(i=>({id:i.uid,qty:0,done:false})));renderEdit();toast('クリアしました');
+    const changed=catalog.filter(i=>i.qty>0||i.done||i.got);
+    catalog.forEach(i=>{i.done=false;i.qty=0;i.got=0;});
+    sbBulkSet(changed.map(i=>({id:i.uid,qty:0,done:false,got:0})));renderEdit();toast('クリアしました');
   });
 }
 function askConfirm(title,msg,cb){confirmCb=cb;$('#confTitle').textContent=title;$('#confMsg').textContent=msg;$('#confBg').classList.add('open');$('#confSheet').classList.add('open');}
@@ -710,8 +717,8 @@ function checkout(){
   const bid=Date.now();
   history.unshift({bid,date:label,list:entries});
   if(SB.ready()) sbLogInsert(bid,label,now.toISOString(),sd.map(i=>({name:i.name,qty:i.qty,price:i.price,zone:i.zone,itemId:i.uid})));
-  done.forEach(i=>{i.done=false;i.qty=0;});
-  sbBulkSet(done.map(i=>({id:i.uid,qty:0,done:false})));
+  done.forEach(i=>{i.done=false;i.qty=0;i.got=0;});
+  sbBulkSet(done.map(i=>({id:i.uid,qty:0,done:false,got:0})));
   renderList();renderHist();toast(`${done.length}こ をアーカイブしました 🎉`);
 }
 function loadKeep(){
@@ -876,7 +883,7 @@ $('#editArea').addEventListener('pointerup',e=>{
     if(btn==='minus')it.qty=Math.max(0,it.qty-1);                                 // −ボタン
     else it.qty=Math.min(99,it.qty+1);                                            // ＋ボタン / 行タップ
   } else return;
-  queueSet(it.uid,{qty:it.qty});renderEdit();
+  it.got=0;queueSet(it.uid,{qty:it.qty,got:0,done:false});it.done=false;renderEdit();
 });
 $('#itemArea').addEventListener('click',e=>{
   if(e.target.closest('.drag'))return;
@@ -891,7 +898,18 @@ $('#itemArea').addEventListener('click',e=>{
   }
   openEdit(it);
 });
-$('#listArea').addEventListener('click',e=>{const row=e.target.closest('.srow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it){it.done=!it.done;queueSet(it.uid,{done:it.done});renderList();if(centerMode&&listSeg==='todo')centerTop();}});
+$('#listArea').addEventListener('click',e=>{
+  const row=e.target.closest('.srow');if(!row)return;
+  const it=catalog.find(i=>i.uid===+row.dataset.uid);if(!it)return;
+  if(listSeg==='done'){ it.done=false;it.got=0;queueSet(it.uid,{done:false,got:0});renderList();return; } // 終了側タップで戻す
+  const need=Math.max(1,it.qty);
+  it.got=(it.got||0)+1;
+  let completed=false;
+  if(it.got>=need){ it.got=need;it.done=true;completed=true; }
+  queueSet(it.uid,{got:it.got,done:it.done});
+  renderList();
+  if(completed&&centerMode)centerTop();
+});
 
 $('#checkoutBtn').addEventListener('click',checkout);
 $('#fsEnter').addEventListener('click',()=>document.body.classList.add('fs'));
