@@ -60,12 +60,18 @@
   .grphead .ln{flex:1;height:1.5px;background:var(--line);border-radius:2px;}
 
   /* edit row */
-  .erow{display:flex;align-items:center;gap:10px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;box-shadow:var(--shadow);}
+  .erow{display:flex;align-items:center;gap:12px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:17px 16px;margin-bottom:9px;box-shadow:var(--shadow);touch-action:pan-y;cursor:pointer;transition:.1s;}
+  .erow:active{transform:scale(.99);}
   .erow.has{border-color:#cfe0c4;background:#fff;}
   .erow.hot{border-color:#eebfb2;}
-  .erow .bdg{font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;flex:none;}
-  .erow .nm{flex:1;min-width:0;font-size:16px;font-weight:700;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .erow .bdg{font-size:11px;font-weight:900;padding:3px 7px;border-radius:7px;flex:none;}
+  .erow .nm{flex:1;min-width:0;font-size:20px;font-weight:700;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .erow.has .nm{color:var(--ink);} .erow.hot .nm{color:var(--hot);}
+  .erow .qbig{font-size:27px;font-weight:900;min-width:46px;text-align:center;color:#cbc4b2;line-height:1;}
+  .erow.has .qbig{color:var(--ink);} .erow.hot .qbig{color:var(--hot);}
+  .hint{font-size:12.5px;color:var(--ink-soft);text-align:center;margin:8px 0 2px;font-weight:700;}
+  #editTab .addbar input{font-size:18px;padding:15px 16px;}
+  #editTab .addbtn{font-size:17px;padding:0 22px;}
   .stepper{display:flex;align-items:center;flex:none;border:2px solid var(--line);border-radius:11px;overflow:hidden;}
   .stepper button{width:36px;height:36px;border:0;background:var(--paper2);font-size:20px;font-weight:900;color:var(--green-d);cursor:pointer;font-family:inherit;line-height:1;}
   .stepper button:active{background:#e8dcc2;}
@@ -199,6 +205,7 @@
         <button class="ghostbtn" id="clearBtn" style="color:var(--hot);border-color:#eebfb2;">全部クリア</button>
       </div>
     </div>
+    <div class="hint">タップで ＋1 ・ 左にスワイプで −1</div>
     <div id="editArea"></div>
   </main>
 
@@ -409,7 +416,6 @@ function renderList(){
     for(const it of g.items){
       const hot=it.qty>=2;
       html+=`<div class="srow ${it.done?'done':''} ${hot?'hot':''}" data-uid="${it.uid}">
-        <div class="check"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <div class="body"><span class="nm">${esc(it.name)}</span>${it.qty>1?`<span class="qty">×${it.qty}</span>`:''}</div>
         ${showBadge?bdg(it.zone,'bdg'):''}</div>`;
     }
@@ -431,7 +437,7 @@ function renderEdit(){
       html+=`<div class="erow ${it.qty>0?'has':''} ${hot?'hot':''}" data-uid="${it.uid}">
         ${showBadge?bdg(it.zone,'bdg'):''}
         <div class="nm">${esc(it.name)}</div>
-        <div class="stepper"><button data-act="minus">−</button><span class="v">${it.qty}</span><button data-act="plus">＋</button></div></div>`;
+        <div class="qbig">${it.qty}</div></div>`;
     }
     html+='</div>';
   }
@@ -580,12 +586,15 @@ $('#listSort').addEventListener('change',e=>{listSort=e.target.value;renderList(
 $('#editSort').addEventListener('change',e=>{editSort=e.target.value;renderEdit();});
 $('#itemSort').addEventListener('change',e=>{itemSort=e.target.value;renderItems();});
 
-$('#editArea').addEventListener('click',e=>{
-  const row=e.target.closest('.erow');if(!row)return;
-  const it=catalog.find(i=>i.uid===+row.dataset.uid);if(!it)return;
-  const act=e.target.closest('[data-act]')?.dataset.act;
-  if(act==='plus')it.qty=Math.min(99,it.qty+1);else if(act==='minus')it.qty=Math.max(0,it.qty-1);else return;
-  renderEdit();
+let _sx=0,_sy=0,_su=null;
+$('#editArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.erow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;});
+$('#editArea').addEventListener('pointercancel',()=>{_su=null;});
+$('#editArea').addEventListener('pointerup',e=>{
+  if(_su==null)return;const uid=_su;_su=null;
+  const it=catalog.find(i=>i.uid===uid);if(!it)return;
+  const dx=e.clientX-_sx,dy=e.clientY-_sy;
+  if(dx<-40&&Math.abs(dx)>Math.abs(dy)){it.qty=Math.max(0,it.qty-1);renderEdit();}
+  else if(Math.abs(dx)<12&&Math.abs(dy)<12){it.qty=Math.min(99,it.qty+1);renderEdit();}
 });
 $('#itemArea').addEventListener('click',e=>{if(e.target.closest('.drag'))return;const row=e.target.closest('.irow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it)openEdit(it);});
 $('#listArea').addEventListener('click',e=>{const row=e.target.closest('.srow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it){it.done=!it.done;renderList();}});
