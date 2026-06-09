@@ -162,6 +162,7 @@
   .sheetbtns button{flex:1;font-family:inherit;font-weight:900;font-size:15px;padding:14px;border-radius:13px;cursor:pointer;border:0;}
   .b-del{background:var(--hot-soft);color:var(--hot);} .b-save{background:var(--green);color:#fff;box-shadow:0 3px 0 var(--green-d);}
   .b-done{background:var(--ink);color:#fff;}
+  .b-copy{background:var(--paper2);color:var(--green-d);border:2px solid var(--green)!important;}
 
   /* zone admin */
   .zrow{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:8px 9px;margin-bottom:7px;}
@@ -313,9 +314,16 @@
   </div>
   <div class="field"><label>種別</label><div class="chips" id="typeChips"></div></div>
   <div class="field"><label>売り場</label><div class="chips" id="zoneChips"></div></div>
-  <div class="field"><label>今回のこすう（0 なら買わない）</label><div class="qstep"><button id="qMinus">−</button><span class="v" id="qVal">0</span><button id="qPlus">＋</button></div></div>
-  <div class="field"><label>いつも買う（定番）</label><button id="keepToggle" class="keepbtn">いつも買う：OFF</button><div style="font-size:11px;color:var(--ink-soft);margin-top:6px;line-height:1.5;">ONにすると、編集の「★定番を読込」ボタンでこの個数が入ります</div></div>
+  <div class="field"><label>いつも買う（定番）</label>
+    <button id="keepToggle" class="keepbtn">いつも買う：OFF</button>
+    <div id="keepQtyWrap" style="margin-top:10px;display:none;">
+      <label style="font-size:12px;color:var(--ink-soft);">定番の個数</label>
+      <div class="qstep"><button id="qMinus">−</button><span class="v" id="qVal">1</span><button id="qPlus">＋</button></div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-soft);margin-top:6px;line-height:1.5;">ONにすると、編集の「★定番を読込」ボタンでこの個数が入ります（今回の個数はここでは変わりません）</div>
+  </div>
   <div class="field"><label>編集リストでの表示</label><button id="hideToggle" class="keepbtn">表示する</button><div style="font-size:11px;color:var(--ink-soft);margin-top:6px;line-height:1.5;">非表示にすると編集リストに出ません（品目には残ります）</div></div>
+  <div class="sheetbtns" style="margin-bottom:2px;"><button class="b-copy" id="copyBtn">📄 別名で保存（コピー）</button></div>
   <div class="sheetbtns"><button class="b-del" id="delBtn">削除</button><button class="b-save" id="saveBtn">保存</button></div>
 </div>
 
@@ -846,10 +854,10 @@ function renderHapticBtn(){const b=$('#hapticToggle');if(!b)return;b.classList.t
 
 function renderTypeChips(){$('#typeChips').innerHTML=TYPES.map(t=>`<button class="chip ${t===editType?'on':''}" data-type="${esc(t)}">${esc(t)}</button>`).join('');}
 function renderZoneChips(){$('#zoneChips').innerHTML=ZONES.map(z=>`<button class="chip ${z.code===editZone?'on':''}" data-zone="${esc(z.code)}">${esc(z.code)} ${esc(z.label)}</button>`).join('');}
-function renderKeepBtn(){const b=$('#keepToggle');b.classList.toggle('on',editKeep);b.textContent=editKeep?'★ いつも買う：ON':'いつも買う：OFF';}
+function renderKeepBtn(){const b=$('#keepToggle');b.classList.toggle('on',editKeep);b.textContent=editKeep?'★ いつも買う：ON':'いつも買う：OFF';const w=$('#keepQtyWrap');if(w)w.style.display=editKeep?'block':'none';$('#qVal').textContent=editQty;}
 function renderHideBtn(){const b=$('#hideToggle');b.classList.toggle('on',!editHidden);b.textContent=editHidden?'非表示にする':'表示する';}
 function openEdit(it){
-  editing=it;editZone=it.zone;editType=it.type;editQty=it.qty;editKeep=it.keep;editHidden=!!it.hidden;
+  editing=it;editZone=it.zone;editType=it.type;editQty=Math.max(1,it.keepQty||1);editKeep=it.keep;editHidden=!!it.hidden;
   $('#fName').value=it.name;$('#fId').value=it.id;$('#fPrice').value=it.price||'';$('#qVal').textContent=editQty;
   renderTypeChips();renderZoneChips();renderKeepBtn();renderHideBtn();
   $('#sheetBg').classList.add('open');$('#sheet').classList.add('open');
@@ -945,7 +953,7 @@ $('#editArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10|
 $('#editArea').addEventListener('pointercancel',()=>{_su=null;cancelLongPress();});
 $('#editArea').addEventListener('pointerup',e=>{
   cancelLongPress();
-  if(_lpFired){_lpFired=false;_su=null;return;}            // 長押しで編集を開いた→個数操作はしない
+  if(_lpFired){_lpFired=false;_su=null;return;}            // 長押しで品目編集を開いた→個数は変えない
   if(_su==null)return;const uid=_su;_su=null;const btn=_btn;_btn=null;
   const it=catalog.find(i=>i.uid===uid);if(!it)return;
   const dx=e.clientX-_sx,dy=e.clientY-_sy;
@@ -974,7 +982,7 @@ $('#listArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10|
 $('#listArea').addEventListener('pointerup',cancelLongPress);
 $('#listArea').addEventListener('pointercancel',cancelLongPress);
 $('#listArea').addEventListener('click',e=>{
-  if(_lpFired){_lpFired=false;return;}                       // 長押しで編集を開いた→カゴ操作はしない
+  if(_lpFired){_lpFired=false;return;}                       // 長押しで品目編集を開いた→カゴには入れない
   const row=e.target.closest('.srow');if(!row)return;
   const it=catalog.find(i=>i.uid===+row.dataset.uid);if(!it)return;
   if(listSeg==='done'){ it.done=false;it.got=0;it.picked_at=null;queueSet(it.uid,{done:false,got:0,picked_at:null});haptic();renderList();return; } // 終了側タップで戻す
@@ -1013,7 +1021,7 @@ $('#fsExit').addEventListener('click',()=>document.body.classList.remove('fs'));
 
 /* item sheet */
 $('#sheetBg').addEventListener('click',closeEdit);
-$('#qMinus').addEventListener('click',()=>{editQty=Math.max(0,editQty-1);$('#qVal').textContent=editQty;});
+$('#qMinus').addEventListener('click',()=>{editQty=Math.max(1,editQty-1);$('#qVal').textContent=editQty;});
 $('#qPlus').addEventListener('click',()=>{editQty=Math.min(99,editQty+1);$('#qVal').textContent=editQty;});
 $('#typeChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;editType=b.dataset.type;renderTypeChips();});
 $('#zoneChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;editZone=b.dataset.zone;renderZoneChips();});
@@ -1029,12 +1037,24 @@ $('#saveBtn').addEventListener('click',()=>{
   editing.name=$('#fName').value.trim()||editing.name;
   const idv=parseInt($('#fId').value);if(!isNaN(idv))editing.id=idv;
   const pv=parseInt($('#fPrice').value);editing.price=isNaN(pv)?0:Math.max(0,pv);
-  editing.type=editType;editing.zone=editZone;editing.qty=editQty;
+  editing.type=editType;editing.zone=editZone;
   editing.keep=editKeep;editing.keepQty=editKeep?Math.max(editQty,1):0;editing.hidden=editHidden;
   sbItemUpdate(editing);
   closeEdit();renderItems();toast('保存しました');
 });
 $('#delBtn').addEventListener('click',()=>{if(!editing)return;const u=editing.uid;catalog=catalog.filter(i=>i.uid!==u);sbItemDelete(u);closeEdit();renderItems();toast('削除しました');});
+$('#copyBtn').addEventListener('click',async()=>{
+  if(!editing)return;
+  let name=$('#fName').value.trim()||editing.name;
+  if(name===editing.name) name=name+' コピー';     // 名前未変更ならコピーと分かるように
+  const pv=parseInt($('#fPrice').value);const price=isNaN(pv)?0:Math.max(0,pv);
+  const maxId=catalog.reduce((a,b)=>Math.max(a,b.id),0);
+  const copy={uid:null,id:maxId+1,name,type:editType,zone:editZone,price,qty:editing.qty||0,done:false,keep:editKeep,keepQty:editKeep?Math.max(editQty,1):0,hidden:editHidden,got:0,picked_at:null};
+  if(SB.ready()){ const id=await sbItemInsert(copy); if(id==null){toast('コピーに失敗しました');return;} copy.uid=id; }
+  else { copy.uid=uidSeq++; }
+  catalog.push(copy);
+  closeEdit();renderItems();toast(`「${name}」を作成しました`);
+});
 
 /* zone admin */
 $('#gearBtn').addEventListener('click',openZoneAdmin);
