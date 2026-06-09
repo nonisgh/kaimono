@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>おかいものメモ</title>
+<title>おかいものメモ（β版）</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='15'%20fill='%237aa252'/%3E%3Cg%20fill='none'%20stroke='%23fff'%20stroke-width='4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M12%2016h6l4.6%2022h21'/%3E%3Cpath%20d='M20%2021h31l-4%2013H23.5'/%3E%3C/g%3E%3Ccircle%20cx='25'%20cy='45.5'%20r='3.6'%20fill='%23fff'/%3E%3Ccircle%20cx='43'%20cy='45.5'%20r='3.6'%20fill='%23fff'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -226,7 +226,7 @@
   <header>
     <div class="titlebar">
       <div class="logo">🧺</div>
-      <div><h1>おかいものメモ</h1><div class="sub">売り場を回る順に</div></div>
+      <div><h1>おかいものメモ（β版）</h1><div class="sub">売り場を回る順に</div></div>
       <div class="headright">
         <div class="syncdot" id="syncDot"><span class="ic">☁</span></div>
         <button class="gear" id="gearBtn" title="売り場の管理">⚙</button>
@@ -655,6 +655,18 @@ function renderList(){ saveLocal();
   }
   area.innerHTML=html;
 }
+function updateListChrome(){                       // 行は触らずヘッダーの数字だけ更新（全再描画しない）
+  const trip=catalog.filter(i=>i.qty>0);
+  const todo=trip.filter(i=>!i.done), done=trip.filter(i=>i.done);
+  $('#remain').textContent=todo.length;
+  $('#listTotal').textContent=yen(taxIncl(tripTotal()));
+  $('#checkoutBtn').disabled=done.length===0;
+  $('#checkoutTxt').textContent=done.length>0?`カゴの ${done.length}こ を記録する`:'カゴに入れたものを記録';
+}
+function dropListRow(row){                          // 消えた1行だけDOMから外す（空グループも片付け）
+  if(!row)return;const grp=row.parentElement;row.remove();
+  if(grp&&grp.classList&&grp.classList.contains('grp')&&!grp.querySelector('.srow'))grp.remove();
+}
 
 /* ===== EDIT ===== */
 function renderEdit(){ saveLocal();
@@ -994,7 +1006,12 @@ $('#listArea').addEventListener('pointerup',e=>{
   if(Math.abs(dx)>14||Math.abs(dy)>14)return;                // スクロール/スワイプはカゴ操作にしない
   const it=catalog.find(i=>i.uid===uid);if(!it)return;
   const row=document.querySelector('.srow[data-uid="'+uid+'"]');
-  if(listSeg==='done'){ it.done=false;it.got=0;it.picked_at=null;queueSet(it.uid,{done:false,got:0,picked_at:null});haptic();renderList();return; } // 終了側タップで戻す
+  if(listSeg==='done'){                                       // 終了側タップで未終了に戻す
+    it.done=false;it.got=0;it.picked_at=null;queueSet(it.uid,{done:false,got:0,picked_at:null});haptic();
+    dropListRow(row);updateListChrome();saveLocal();
+    if(catalog.filter(i=>i.qty>0&&i.done).length===0)renderList();   // 終了が空になったら空表示へ
+    return;
+  }
   const need=Math.max(1,it.qty);
   const wasZero=(it.got||0)===0;
   it.got=(it.got||0)+1;
@@ -1005,7 +1022,11 @@ $('#listArea').addEventListener('pointerup',e=>{
   haptic(completed?'done':'tap');
   if(completed){
     if(row)row.classList.add('poof');
-    setTimeout(()=>{ renderList(); if(revMode)scrollBottom(); },140);
+    setTimeout(()=>{
+      dropListRow(row);updateListChrome();saveLocal();
+      if(catalog.filter(i=>i.qty>0&&!i.done).length===0)renderList(); // 未終了が空になったら空表示へ
+      if(revMode)scrollBottom();
+    },140);
   } else {
     const rem=Math.max(0,it.qty-it.got);          // 未完了：その行だけ書き換え（全再描画しない＝アニメが途切れない）
     if(row){
