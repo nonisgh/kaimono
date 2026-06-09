@@ -106,7 +106,7 @@
   .irow .price{font-size:12px;font-weight:700;color:var(--green-d);flex:none;min-width:46px;text-align:right;}
 
   /* shop / list row */
-  .srow{display:flex;align-items:center;gap:13px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:15px 15px;margin-bottom:9px;box-shadow:var(--shadow);transition:.16s;}
+  .srow{display:flex;align-items:center;gap:13px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:15px 15px;margin-bottom:9px;box-shadow:var(--shadow);transition:.16s;touch-action:pan-y;}
   .srow:active{transform:scale(.99);}
   .srow.hot{border-color:#eebfb2;background:#fff;}
   .check{width:32px;height:32px;border-radius:9px;border:2.5px solid var(--line);flex:none;display:grid;place-items:center;cursor:pointer;transition:.15s;background:var(--paper);}
@@ -984,7 +984,7 @@ $('#itemArea').addEventListener('click',e=>{
   openEdit(it);
 });
 $('#listArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.srow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;startLongPress(_su);});
-$('#listArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10||Math.abs(e.clientY-_sy)>10)cancelLongPress();});
+$('#listArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10||Math.abs(e.clientY-_sy)>10)cancelLongPress();},{passive:true});
 $('#listArea').addEventListener('pointercancel',()=>{_su=null;cancelLongPress();});
 $('#listArea').addEventListener('pointerup',e=>{
   cancelLongPress();
@@ -1007,7 +1007,13 @@ $('#listArea').addEventListener('pointerup',e=>{
     if(row)row.classList.add('poof');
     setTimeout(()=>{ renderList(); if(revMode)scrollBottom(); },140);
   } else {
-    renderList();
+    const rem=Math.max(0,it.qty-it.got);          // 未完了：その行だけ書き換え（全再描画しない＝アニメが途切れない）
+    if(row){
+      row.classList.toggle('hot',rem>=2);
+      const dots=row.querySelector('.bigq .dots'); if(dots)dots.textContent='●'.repeat(Math.min(rem,15));
+      const num=row.querySelector('.bigq .num'); if(num)num.textContent='あと'+rem+'こ';
+      saveLocal();
+    } else { renderList(); }
   }
 });
 
