@@ -163,6 +163,7 @@
   .b-del{background:var(--hot-soft);color:var(--hot);} .b-save{background:var(--green);color:#fff;box-shadow:0 3px 0 var(--green-d);}
   .b-done{background:var(--ink);color:#fff;}
   .b-copy{background:var(--paper2);color:var(--green-d);border:2px solid var(--green)!important;}
+  .b-cancel{background:var(--paper2);color:var(--ink-soft);}
 
   /* zone admin */
   .zrow{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:8px 9px;margin-bottom:7px;}
@@ -477,7 +478,7 @@ let uidSeq=1;
 let catalog=RAW.map(([zone,name,type,qty],i)=>({uid:uidSeq++,id:i+1,name,type,zone,price:0,qty,done:false,keep:false,keepQty:0}));
 
 let history=[{bid:0,date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌'},{name:'りんご ×2'}]}];
-let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false;
+let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editLock=false,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false;
 let itemSortables=[],zoneSortable=null,confirmCb=null,histSort='pick';
 let revMode=(localStorage.getItem('kaimono.rev')??'0')==='1';
 let revPad=parseFloat(localStorage.getItem('kaimono.revpad'))||24; // 表示位置(vh)・端末ごと（同期しない）
@@ -856,13 +857,16 @@ function renderTypeChips(){$('#typeChips').innerHTML=TYPES.map(t=>`<button class
 function renderZoneChips(){$('#zoneChips').innerHTML=ZONES.map(z=>`<button class="chip ${z.code===editZone?'on':''}" data-zone="${esc(z.code)}">${esc(z.code)} ${esc(z.label)}</button>`).join('');}
 function renderKeepBtn(){const b=$('#keepToggle');b.classList.toggle('on',editKeep);b.textContent=editKeep?'★ いつも買う：ON':'いつも買う：OFF';const w=$('#keepQtyWrap');if(w)w.style.display=editKeep?'block':'none';$('#qVal').textContent=editQty;}
 function renderHideBtn(){const b=$('#hideToggle');b.classList.toggle('on',!editHidden);b.textContent=editHidden?'非表示にする':'表示する';}
-function openEdit(it){
-  editing=it;editZone=it.zone;editType=it.type;editQty=Math.max(1,it.keepQty||1);editKeep=it.keep;editHidden=!!it.hidden;
+function openEdit(it,lock){
+  editing=it;editLock=!!lock;editZone=it.zone;editType=it.type;editQty=Math.max(1,it.keepQty||1);editKeep=it.keep;editHidden=!!it.hidden;
   $('#fName').value=it.name;$('#fId').value=it.id;$('#fPrice').value=it.price||'';$('#qVal').textContent=editQty;
   renderTypeChips();renderZoneChips();renderKeepBtn();renderHideBtn();
+  const del=$('#delBtn');
+  if(editLock){del.textContent='とじる';del.classList.remove('b-del');del.classList.add('b-cancel');}
+  else{del.textContent='削除';del.classList.add('b-del');del.classList.remove('b-cancel');}
   $('#sheetBg').classList.add('open');$('#sheet').classList.add('open');
 }
-function closeEdit(){$('#sheetBg').classList.remove('open');$('#sheet').classList.remove('open');editing=null;}
+function closeEdit(){$('#sheetBg').classList.remove('open');$('#sheet').classList.remove('open');editing=null;editLock=false;}
 
 /* ===== 売り場の管理 ===== */
 function renderZoneAdmin(){
@@ -946,7 +950,7 @@ $('#itemSort').addEventListener('change',e=>{itemSort=e.target.value;renderItems
 $('#histSort').addEventListener('change',e=>{histSort=e.target.value;renderHist();});
 
 let _sx=0,_sy=0,_su=null,_btn=null,_lpTimer=null,_lpFired=false;
-function startLongPress(uid){ _lpFired=false; clearTimeout(_lpTimer); _lpTimer=setTimeout(()=>{ _lpFired=true; const it=catalog.find(i=>i.uid===uid); if(it){ haptic('done'); openEdit(it); } },500); }
+function startLongPress(uid){ _lpFired=false; clearTimeout(_lpTimer); _lpTimer=setTimeout(()=>{ _lpFired=true; const it=catalog.find(i=>i.uid===uid); if(it){ haptic('done'); openEdit(it,true); } },500); }
 function cancelLongPress(){ clearTimeout(_lpTimer); }
 $('#editArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.erow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;const b=e.target.closest('[data-act]');_btn=b?b.dataset.act:null;startLongPress(_su);});
 $('#editArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10||Math.abs(e.clientY-_sy)>10)cancelLongPress();});
@@ -977,14 +981,17 @@ $('#itemArea').addEventListener('click',e=>{
   }
   openEdit(it);
 });
-$('#listArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.srow');if(!row)return;_sx=e.clientX;_sy=e.clientY;startLongPress(+row.dataset.uid);});
+$('#listArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.srow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;startLongPress(_su);});
 $('#listArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10||Math.abs(e.clientY-_sy)>10)cancelLongPress();});
-$('#listArea').addEventListener('pointerup',cancelLongPress);
-$('#listArea').addEventListener('pointercancel',cancelLongPress);
-$('#listArea').addEventListener('click',e=>{
-  if(_lpFired){_lpFired=false;return;}                       // 長押しで品目編集を開いた→カゴには入れない
-  const row=e.target.closest('.srow');if(!row)return;
-  const it=catalog.find(i=>i.uid===+row.dataset.uid);if(!it)return;
+$('#listArea').addEventListener('pointercancel',()=>{_su=null;cancelLongPress();});
+$('#listArea').addEventListener('pointerup',e=>{
+  cancelLongPress();
+  if(_lpFired){_lpFired=false;_su=null;return;}              // 長押しで品目編集を開いた→カゴには入れない
+  if(_su==null)return;const uid=_su;_su=null;
+  const dx=e.clientX-_sx,dy=e.clientY-_sy;
+  if(Math.abs(dx)>14||Math.abs(dy)>14)return;                // スクロール/スワイプはカゴ操作にしない
+  const it=catalog.find(i=>i.uid===uid);if(!it)return;
+  const row=document.querySelector('.srow[data-uid="'+uid+'"]');
   if(listSeg==='done'){ it.done=false;it.got=0;it.picked_at=null;queueSet(it.uid,{done:false,got:0,picked_at:null});haptic();renderList();return; } // 終了側タップで戻す
   const need=Math.max(1,it.qty);
   const wasZero=(it.got||0)===0;
@@ -995,7 +1002,7 @@ $('#listArea').addEventListener('click',e=>{
   queueSet(it.uid,{got:it.got,done:it.done,picked_at:it.picked_at});
   haptic(completed?'done':'tap');
   if(completed){
-    row.classList.add('poof');
+    if(row)row.classList.add('poof');
     setTimeout(()=>{ renderList(); if(revMode)scrollBottom(); },140);
   } else {
     renderList();
@@ -1042,7 +1049,7 @@ $('#saveBtn').addEventListener('click',()=>{
   sbItemUpdate(editing);
   closeEdit();renderItems();toast('保存しました');
 });
-$('#delBtn').addEventListener('click',()=>{if(!editing)return;const u=editing.uid;catalog=catalog.filter(i=>i.uid!==u);sbItemDelete(u);closeEdit();renderItems();toast('削除しました');});
+$('#delBtn').addEventListener('click',()=>{if(!editing)return;if(editLock){closeEdit();return;}const u=editing.uid;catalog=catalog.filter(i=>i.uid!==u);sbItemDelete(u);closeEdit();renderItems();toast('削除しました');});
 $('#copyBtn').addEventListener('click',async()=>{
   if(!editing)return;
   let name=$('#fName').value.trim()||editing.name;
