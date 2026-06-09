@@ -67,8 +67,11 @@
   .erow .bdg{font-size:11px;font-weight:900;padding:3px 7px;border-radius:7px;flex:none;}
   .erow .nm{flex:1;min-width:0;font-size:20px;font-weight:700;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .erow.has .nm{color:var(--ink);} .erow.hot .nm{color:var(--hot);}
-  .erow .qbig{font-size:27px;font-weight:900;min-width:46px;text-align:center;color:#cbc4b2;line-height:1;}
+  .erow .qbig{font-size:25px;font-weight:900;min-width:42px;text-align:center;color:#cbc4b2;line-height:1;}
   .erow.has .qbig{color:var(--ink);} .erow.hot .qbig{color:var(--hot);}
+  .erow .estep{display:flex;align-items:center;border:2px solid var(--line);border-radius:12px;overflow:hidden;flex:none;}
+  .erow .estep button{width:42px;height:42px;border:0;background:var(--paper2);font-size:24px;font-weight:900;color:var(--green-d);font-family:inherit;line-height:1;cursor:pointer;}
+  .erow .estep button:active{background:#e8dcc2;}
   .hint{font-size:12.5px;color:var(--ink-soft);text-align:center;margin:8px 0 2px;font-weight:700;}
   #editTab .addbar input{font-size:18px;padding:15px 16px;}
   #editTab .addbtn{font-size:17px;padding:0 22px;}
@@ -162,6 +165,9 @@
   .sortable-ghost{opacity:.35;}
   .sortable-chosen{box-shadow:0 0 0 2px var(--green);}
   .itemsbox{min-height:4px;}
+  .keepbtn{font-family:inherit;font-weight:800;font-size:15px;border:2px solid var(--line);background:var(--card);color:var(--ink-soft);border-radius:12px;padding:13px 16px;cursor:pointer;width:100%;text-align:center;}
+  .keepbtn.on{background:#f6ecd2;border-color:#d9a441;color:#9a6f2e;}
+  .irow .star{color:#d9a441;font-size:13px;flex:none;}
   .hidden{display:none !important;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.3/Sortable.min.js"></script>
@@ -243,6 +249,7 @@
   <div class="field"><label>種別</label><div class="chips" id="typeChips"></div></div>
   <div class="field"><label>売り場</label><div class="chips" id="zoneChips"></div></div>
   <div class="field"><label>今回のこすう（0 なら買わない）</label><div class="qstep"><button id="qMinus">−</button><span class="v" id="qVal">0</span><button id="qPlus">＋</button></div></div>
+  <div class="field"><label>いつも買う（定番）</label><button id="keepToggle" class="keepbtn">いつも買う：OFF</button><div style="font-size:11px;color:var(--ink-soft);margin-top:6px;line-height:1.5;">ONにすると、クリア／アーカイブ後も この個数で自動で戻ります</div></div>
   <div class="sheetbtns"><button class="b-del" id="delBtn">削除</button><button class="b-save" id="saveBtn">保存</button></div>
 </div>
 
@@ -361,10 +368,10 @@ const RAW=[
   ['⑥-2','砂糖','調味料',0],['⑥-2','さば缶','缶詰',0],['⑦-1','マヨネーズ','調味料',1],['⑦-1','卵','卵',1],
 ];
 let uidSeq=1;
-let catalog=RAW.map(([zone,name,type,qty],i)=>({uid:uidSeq++,id:i+1,name,type,zone,price:0,qty,done:false}));
+let catalog=RAW.map(([zone,name,type,qty],i)=>({uid:uidSeq++,id:i+1,name,type,zone,price:0,qty,done:false,keep:false,keepQty:0}));
 
 let history=[{date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌'},{name:'りんご ×2'}]}];
-let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editZone='その他',editType='その他',editQty=0;
+let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editZone='その他',editType='その他',editQty=0,editKeep=false;
 let itemSortables=[],zoneSortable=null,confirmCb=null;
 
 const $=s=>document.querySelector(s);
@@ -414,8 +421,8 @@ function renderList(){
   for(const g of groupItems(sortItems(show,listSort),listSort)){
     html+='<div class="grp">'+groupHeader(g);
     for(const it of g.items){
-      const hot=it.qty>=2;
-      html+=`<div class="srow ${it.done?'done':''} ${hot?'hot':''}" data-uid="${it.uid}">
+      const hot=it.qty>=2;const f=FAM[zoneOf(it.zone).fam];
+      html+=`<div class="srow ${it.done?'done':''} ${hot?'hot':''}" data-uid="${it.uid}" style="background:${f.bg};border-left:5px solid ${f.ink};">
         <div class="body"><span class="nm">${esc(it.name)}</span>${it.qty>1?`<span class="qty">×${it.qty}</span>`:''}</div>
         ${showBadge?bdg(it.zone,'bdg'):''}</div>`;
     }
@@ -437,7 +444,7 @@ function renderEdit(){
       html+=`<div class="erow ${it.qty>0?'has':''} ${hot?'hot':''}" data-uid="${it.uid}">
         ${showBadge?bdg(it.zone,'bdg'):''}
         <div class="nm">${esc(it.name)}</div>
-        <div class="qbig">${it.qty}</div></div>`;
+        <div class="estep"><button data-act="minus">−</button><span class="qbig">${it.qty}</span><button data-act="plus">＋</button></div></div>`;
     }
     html+='</div>';
   }
@@ -471,6 +478,7 @@ function renderItems(){
       html+=`<div class="irow" data-uid="${it.uid}">
         ${draggable?'<span class="drag">≡</span>':''}
         <span class="idn">${it.id}</span>${bdg(it.zone,'bdg')}
+        ${it.keep?'<span class="star">★</span>':''}
         <span class="nm">${esc(it.name)}</span>
         <span class="type">${esc(it.type)}</span>
         <span class="price">${it.price>0?yen(it.price):'¥—'}</span></div>`;
@@ -497,12 +505,12 @@ function addFrom(inputSel,after){
   if(m){name=m[1].trim();qty=Math.min(99,parseInt(m[2]));}
   const maxId=catalog.reduce((a,b)=>Math.max(a,b.id),0);
   const zone=guessZone(name),type=guessType(name);
-  catalog.push({uid:uidSeq++,id:maxId+1,name,type,zone,price:0,qty,done:false});
+  catalog.push({uid:uidSeq++,id:maxId+1,name,type,zone,price:0,qty,done:false,keep:false,keepQty:0});
   inp.value='';after();toast(`「${name}」を追加（${zoneOf(zone).code}／${type}）`);
 }
 function clearAll(){
-  askConfirm('今回の「買うもの」を全部クリア','個数をすべて0に戻します（品目リストは消えません）',()=>{
-    catalog.forEach(i=>{i.qty=0;i.done=false;});renderEdit();toast('クリアしました');
+  askConfirm('今回の「買うもの」を全部クリア','個数を0に戻します。★いつも買う（定番）は指定の個数で戻ります（品目リストは消えません）',()=>{
+    catalog.forEach(i=>{i.done=false;i.qty=i.keep?i.keepQty:0;});renderEdit();toast('クリアしました');
   });
 }
 function askConfirm(title,msg,cb){confirmCb=cb;$('#confTitle').textContent=title;$('#confMsg').textContent=msg;$('#confBg').classList.add('open');$('#confSheet').classList.add('open');}
@@ -512,12 +520,11 @@ let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add
 function checkout(){
   const done=catalog.filter(i=>i.qty>0&&i.done);if(done.length===0)return;
   const now=new Date(),wd=['日','月','火','水','木','金','土'][now.getDay()];
-  const dl=`${now.getMonth()+1}月${now.getDate()}日(${wd})`;
+  const label=`${now.getMonth()+1}月${now.getDate()}日(${wd}) ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const entries=sortItems(done,'zone').map(i=>({name:i.qty>1?`${i.name} ×${i.qty}`:i.name}));
-  const day=history.find(d=>d.date===dl);
-  if(day){day.list=entries.concat(day.list);}else{history.unshift({date:dl,list:entries});}
-  done.forEach(i=>{i.qty=0;i.done=false;});
-  renderList();renderHist();toast(`${done.length}こ を記録しました 🎉`);
+  history.unshift({date:label,list:entries});
+  done.forEach(i=>{i.done=false;i.qty=i.keep?i.keepQty:0;});
+  renderList();renderHist();toast(`${done.length}こ をアーカイブしました 🎉`);
 }
 
 function renumber(){
@@ -527,10 +534,11 @@ function renumber(){
 
 function renderTypeChips(){$('#typeChips').innerHTML=TYPES.map(t=>`<button class="chip ${t===editType?'on':''}" data-type="${esc(t)}">${esc(t)}</button>`).join('');}
 function renderZoneChips(){$('#zoneChips').innerHTML=ZONES.map(z=>`<button class="chip ${z.code===editZone?'on':''}" data-zone="${esc(z.code)}">${esc(z.code)} ${esc(z.label)}</button>`).join('');}
+function renderKeepBtn(){const b=$('#keepToggle');b.classList.toggle('on',editKeep);b.textContent=editKeep?'★ いつも買う：ON':'いつも買う：OFF';}
 function openEdit(it){
-  editing=it;editZone=it.zone;editType=it.type;editQty=it.qty;
+  editing=it;editZone=it.zone;editType=it.type;editQty=it.qty;editKeep=it.keep;
   $('#fName').value=it.name;$('#fId').value=it.id;$('#fPrice').value=it.price||'';$('#qVal').textContent=editQty;
-  renderTypeChips();renderZoneChips();
+  renderTypeChips();renderZoneChips();renderKeepBtn();
   $('#sheetBg').classList.add('open');$('#sheet').classList.add('open');
 }
 function closeEdit(){$('#sheetBg').classList.remove('open');$('#sheet').classList.remove('open');editing=null;}
@@ -586,15 +594,19 @@ $('#listSort').addEventListener('change',e=>{listSort=e.target.value;renderList(
 $('#editSort').addEventListener('change',e=>{editSort=e.target.value;renderEdit();});
 $('#itemSort').addEventListener('change',e=>{itemSort=e.target.value;renderItems();});
 
-let _sx=0,_sy=0,_su=null;
-$('#editArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.erow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;});
+let _sx=0,_sy=0,_su=null,_btn=null;
+$('#editArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.erow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;const b=e.target.closest('[data-act]');_btn=b?b.dataset.act:null;});
 $('#editArea').addEventListener('pointercancel',()=>{_su=null;});
 $('#editArea').addEventListener('pointerup',e=>{
-  if(_su==null)return;const uid=_su;_su=null;
+  if(_su==null)return;const uid=_su;_su=null;const btn=_btn;_btn=null;
   const it=catalog.find(i=>i.uid===uid);if(!it)return;
   const dx=e.clientX-_sx,dy=e.clientY-_sy;
-  if(dx<-40&&Math.abs(dx)>Math.abs(dy)){it.qty=Math.max(0,it.qty-1);renderEdit();}
-  else if(Math.abs(dx)<12&&Math.abs(dy)<12){it.qty=Math.min(99,it.qty+1);renderEdit();}
+  if(dx<-40&&Math.abs(dx)>Math.abs(dy)){it.qty=Math.max(0,it.qty-1);}            // 左スワイプ -1
+  else if(Math.abs(dx)<12&&Math.abs(dy)<12){                                      // タップ
+    if(btn==='minus')it.qty=Math.max(0,it.qty-1);                                 // −ボタン
+    else it.qty=Math.min(99,it.qty+1);                                            // ＋ボタン / 行タップ
+  } else return;
+  renderEdit();
 });
 $('#itemArea').addEventListener('click',e=>{if(e.target.closest('.drag'))return;const row=e.target.closest('.irow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it)openEdit(it);});
 $('#listArea').addEventListener('click',e=>{const row=e.target.closest('.srow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it){it.done=!it.done;renderList();}});
@@ -609,12 +621,14 @@ $('#qMinus').addEventListener('click',()=>{editQty=Math.max(0,editQty-1);$('#qVa
 $('#qPlus').addEventListener('click',()=>{editQty=Math.min(99,editQty+1);$('#qVal').textContent=editQty;});
 $('#typeChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;editType=b.dataset.type;renderTypeChips();});
 $('#zoneChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;editZone=b.dataset.zone;renderZoneChips();});
+$('#keepToggle').addEventListener('click',()=>{editKeep=!editKeep;renderKeepBtn();});
 $('#saveBtn').addEventListener('click',()=>{
   if(!editing)return;
   editing.name=$('#fName').value.trim()||editing.name;
   const idv=parseInt($('#fId').value);if(!isNaN(idv))editing.id=idv;
   const pv=parseInt($('#fPrice').value);editing.price=isNaN(pv)?0:Math.max(0,pv);
   editing.type=editType;editing.zone=editZone;editing.qty=editQty;
+  editing.keep=editKeep;editing.keepQty=editKeep?editQty:0;
   closeEdit();renderItems();toast('保存しました');
 });
 $('#delBtn').addEventListener('click',()=>{if(!editing)return;const u=editing.uid;catalog=catalog.filter(i=>i.uid!==u);closeEdit();renderItems();toast('削除しました');});
