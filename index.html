@@ -173,6 +173,7 @@
   .hidden{display:none !important;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.3/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="wrap">
@@ -399,6 +400,55 @@ let history=[{date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌'},{na
 let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editZone='その他',editType='その他',editQty=0,editKeep=false;
 let itemSortables=[],zoneSortable=null,confirmCb=null;
 
+/* ===== クラウド同期（Supabase）。url/key が入っていれば二人共有が点灯。空ならローカル動作 ===== */
+const SB={
+  url:'https://kfslyphplctdfjiwsjut.supabase.co',
+  key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtmc2x5cGhwbGN0ZGZqaXdzanV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NDkzMjQsImV4cCI6MjA5NjUyNTMyNH0.EAo76m7MLbeLFYZvAQVb6zMfzYlovMbCS_6wefYzsYQ',
+  client:null, ready(){return !!this.client;}
+};
+function initDB(){ if(SB.url&&SB.key&&window.supabase){ try{SB.client=window.supabase.createClient(SB.url,SB.key);}catch(e){console.error(e);} } }
+
+function itemRow(it){return {item_no:it.id,name:it.name,category:it.type,zone_code:it.zone,price:it.price,qty:it.qty,done:it.done,keep:it.keep,keep_qty:it.keepQty};}
+function itemRowId(it){return Object.assign({id:it.uid},itemRow(it));}
+function zoneRow(z,i){return {code:z.code,label:z.label,color:z.fam,sort_order:i};}
+
+function sbItemUpdate(it){ if(!SB.ready())return; SB.client.from('items').update(itemRow(it)).eq('id',it.uid).then(r=>{if(r.error)console.error(r.error);}); }
+function sbItemDelete(uid){ if(!SB.ready())return; SB.client.from('items').delete().eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
+async function sbItemInsert(it){ const {data,error}=await SB.client.from('items').insert(itemRow(it)).select().single(); if(error){console.error(error);return null;} return data.id; }
+function sbItemsBulk(items){ if(!SB.ready()||!items.length)return; SB.client.from('items').upsert(items.map(itemRowId)).then(r=>{if(r.error)console.error(r.error);}); }
+function sbZonesSaveAll(){ if(!SB.ready())return; SB.client.from('zones').upsert(ZONES.map((z,i)=>zoneRow(z,i))).then(r=>{if(r.error)console.error(r.error);}); }
+function sbZoneUpdate(i){ if(!SB.ready())return; const z=ZONES[i]; if(!z)return; SB.client.from('zones').update({label:z.label,color:z.fam,sort_order:i}).eq('code',z.code).then(r=>{if(r.error)console.error(r.error);}); }
+function sbZoneDelete(code){ if(!SB.ready())return; SB.client.from('zones').delete().eq('code',code).then(r=>{if(r.error)console.error(r.error);}); }
+async function sbZoneRename(oldCode,newCode){ if(!SB.ready())return; await SB.client.from('zones').update({code:newCode}).eq('code',oldCode); await SB.client.from('items').update({zone_code:newCode}).eq('zone_code',oldCode); }
+function sbLogInsert(batchId,label,when,entries){ if(!SB.ready())return; SB.client.from('purchase_log').insert(entries.map(e=>({batch_id:batchId,archived_at:when,label,name:e.name,qty:e.qty||1,price:e.price||0}))).then(r=>{if(r.error)console.error(r.error);}); }
+
+async function loadZones(){ const {data,error}=await SB.client.from('zones').select('*').order('sort_order'); if(error){console.error(error);return;} if(data.length){ ZONES=data.map(r=>({code:r.code,label:r.label,fam:r.color})); if(!ZONES.some(z=>z.code==='その他'))ZONES.push({code:'その他',label:'その他',fam:'etc'}); recomputeZones(); } }
+async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:r.id,id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0})); }
+async function loadHistory(){ const {data,error}=await SB.client.from('purchase_log').select('*').order('archived_at',{ascending:false}); if(error){console.error(error);return;} const map=new Map(); for(const r of data){ if(!map.has(r.batch_id))map.set(r.batch_id,{date:r.label,list:[]}); map.get(r.batch_id).list.push({name:r.name}); } history=[...map.values()]; }
+async function seedIfEmpty(){
+  const z=await SB.client.from('zones').select('code',{count:'exact',head:true});
+  if(!z.count) await SB.client.from('zones').insert(ZONES.map((zz,i)=>zoneRow(zz,i)));
+  const it=await SB.client.from('items').select('id',{count:'exact',head:true});
+  if(!it.count) await SB.client.from('items').insert(catalog.map(itemRow));
+}
+function syncRender(){ renderActive(); if($('#zoneSheet').classList.contains('open'))renderZoneAdmin(); }
+function subscribe(){
+  if(!SB.ready())return;
+  SB.client.channel('rt')
+    .on('postgres_changes',{event:'*',schema:'public',table:'items'},async()=>{await loadItems();syncRender();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'zones'},async()=>{await loadZones();syncRender();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'purchase_log'},async()=>{await loadHistory();if(activeTab==='hist')renderHist();})
+    .subscribe();
+}
+async function init(){
+  initDB();
+  if(SB.ready()){
+    try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); }
+    catch(e){ console.error(e); toast('同期エラー（コンソール参照）'); }
+    renderList(); subscribe();
+  } else { renderList(); }
+}
+
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const yen=n=>'¥'+(n||0).toLocaleString('ja-JP');
@@ -483,6 +533,7 @@ function onItemDrop(){
     const z=box.dataset.zone;
     box.querySelectorAll('.irow').forEach(row=>{const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it){if(z)it.zone=z;it.id=nid++;}});
   });
+  sbItemsBulk(catalog);
   renderItems();
 }
 function initItemSortables(){
@@ -524,38 +575,43 @@ function renderHist(){
 function renderActive(){if(activeTab==='list')renderList();else if(activeTab==='edit')renderEdit();else if(activeTab==='item')renderItems();else renderHist();}
 
 /* ===== 追加・編集 ===== */
-function addFrom(inputSel,after){
+async function addFrom(inputSel,after){
   const inp=$(inputSel),raw=inp.value.trim();if(!raw)return;
   let name=raw,qty=1;const m=raw.match(/^(.+?)\s*[×x*]?\s*(\d+)$/);
   if(m){name=m[1].trim();qty=Math.min(99,parseInt(m[2]));}
   const maxId=catalog.reduce((a,b)=>Math.max(a,b.id),0);
   const zone=guessZone(name),type=guessType(name);
-  catalog.push({uid:uidSeq++,id:maxId+1,name,type,zone,price:0,qty,done:false,keep:false,keepQty:0});
-  inp.value='';after();toast(`「${name}」を追加（${zoneOf(zone).code}／${type}）`);
+  const it={uid:null,id:maxId+1,name,type,zone,price:0,qty,done:false,keep:false,keepQty:0};
+  if(SB.ready()){ const id=await sbItemInsert(it); if(id==null){toast('追加に失敗しました');return;} it.uid=id; }
+  else { it.uid=uidSeq++; }
+  catalog.push(it);inp.value='';after();toast(`「${name}」を追加（${zoneOf(zone).code}／${type}）`);
 }
 function clearAll(){
   askConfirm('今回の「買うもの」を全部クリア','個数を0に戻します。★いつも買う（定番）は指定の個数で戻ります（品目リストは消えません）',()=>{
-    catalog.forEach(i=>{i.done=false;i.qty=i.keep?i.keepQty:0;});renderEdit();toast('クリアしました');
+    catalog.forEach(i=>{i.done=false;i.qty=i.keep?i.keepQty:0;});sbItemsBulk(catalog);renderEdit();toast('クリアしました');
   });
 }
 function askConfirm(title,msg,cb){confirmCb=cb;$('#confTitle').textContent=title;$('#confMsg').textContent=msg;$('#confBg').classList.add('open');$('#confSheet').classList.add('open');}
 function closeConfirm(){$('#confBg').classList.remove('open');$('#confSheet').classList.remove('open');confirmCb=null;}
-let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900);}
 
 function checkout(){
   const done=catalog.filter(i=>i.qty>0&&i.done);if(done.length===0)return;
   const now=new Date(),wd=['日','月','火','水','木','金','土'][now.getDay()];
   const label=`${now.getMonth()+1}月${now.getDate()}日(${wd}) ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const entries=sortItems(done,'zone').map(i=>({name:i.qty>1?`${i.name} ×${i.qty}`:i.name}));
+  const sd=sortItems(done,'zone');
+  const entries=sd.map(i=>({name:i.qty>1?`${i.name} ×${i.qty}`:i.name}));
   history.unshift({date:label,list:entries});
+  if(SB.ready()) sbLogInsert(Date.now(),label,now.toISOString(),sd.map(i=>({name:i.qty>1?`${i.name} ×${i.qty}`:i.name,qty:i.qty,price:i.price})));
   done.forEach(i=>{i.done=false;i.qty=i.keep?i.keepQty:0;});
+  sbItemsBulk(done);
   renderList();renderHist();toast(`${done.length}こ をアーカイブしました 🎉`);
 }
 
 function renumber(){
   sortItems(catalog,'zone').forEach((it,i)=>it.id=i+1);
-  renderItems();toast('売り場順に番号を振り直しました');
+  sbItemsBulk(catalog);renderItems();toast('売り場順に番号を振り直しました');
 }
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900);}
 
 function renderTypeChips(){$('#typeChips').innerHTML=TYPES.map(t=>`<button class="chip ${t===editType?'on':''}" data-type="${esc(t)}">${esc(t)}</button>`).join('');}
 function renderZoneChips(){$('#zoneChips').innerHTML=ZONES.map(z=>`<button class="chip ${z.code===editZone?'on':''}" data-zone="${esc(z.code)}">${esc(z.code)} ${esc(z.label)}</button>`).join('');}
@@ -587,7 +643,7 @@ function renderZoneAdmin(){
 let colorTarget=null;
 function renderColorGrid(){ $('#colorGrid').innerHTML=PALETTE.map(k=>`<button class="cswatch" data-color="${k}" style="background:${FAM[k].ink}"></button>`).join(''); }
 function openColorPicker(i){colorTarget=i;renderColorGrid();const fam=ZONES[i].fam;$('#customColor').value=(typeof fam==='string'&&fam[0]==='#')?fam:'#88aa66';$('#colorBg').classList.add('open');$('#colorSheet').classList.add('open');}
-function closeColorPicker(){$('#colorBg').classList.remove('open');$('#colorSheet').classList.remove('open');colorTarget=null;renderZoneAdmin();}
+function closeColorPicker(){if(colorTarget!=null)sbZoneUpdate(colorTarget);$('#colorBg').classList.remove('open');$('#colorSheet').classList.remove('open');colorTarget=null;renderZoneAdmin();}
 function setZoneCode(i,newCode){
   newCode=newCode.trim();const old=ZONES[i].code;
   if(!newCode||newCode===old){renderZoneAdmin();return;}
@@ -595,11 +651,11 @@ function setZoneCode(i,newCode){
   if(ZONES.some((z,j)=>j!==i&&z.code===newCode)){toast('その記号はもうあるよ');renderZoneAdmin();return;}
   ZONES[i].code=newCode;
   catalog.forEach(it=>{if(it.zone===old)it.zone=newCode;});
-  recomputeZones();renderZoneAdmin();
+  recomputeZones();sbZoneRename(old,newCode);renderZoneAdmin();
 }
 function onZoneDrop(){
   const order=[...document.querySelectorAll('#zoneAdminArea .zrow')].map(r=>ZONES[+r.dataset.i]);
-  ZONES=order;recomputeZones();renderZoneAdmin();
+  ZONES=order;recomputeZones();sbZonesSaveAll();renderZoneAdmin();
 }
 function openZoneAdmin(){renderZoneAdmin();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
 function closeZoneAdmin(){$('#zoneBg').classList.remove('open');$('#zoneSheet').classList.remove('open');recomputeZones();renderActive();}
@@ -644,10 +700,10 @@ $('#editArea').addEventListener('pointerup',e=>{
     if(btn==='minus')it.qty=Math.max(0,it.qty-1);                                 // −ボタン
     else it.qty=Math.min(99,it.qty+1);                                            // ＋ボタン / 行タップ
   } else return;
-  renderEdit();
+  sbItemUpdate(it);renderEdit();
 });
 $('#itemArea').addEventListener('click',e=>{if(e.target.closest('.drag'))return;const row=e.target.closest('.irow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it)openEdit(it);});
-$('#listArea').addEventListener('click',e=>{const row=e.target.closest('.srow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it){it.done=!it.done;renderList();}});
+$('#listArea').addEventListener('click',e=>{const row=e.target.closest('.srow');if(!row)return;const it=catalog.find(i=>i.uid===+row.dataset.uid);if(it){it.done=!it.done;sbItemUpdate(it);renderList();}});
 
 $('#checkoutBtn').addEventListener('click',checkout);
 $('#fsEnter').addEventListener('click',()=>document.body.classList.add('fs'));
@@ -667,9 +723,10 @@ $('#saveBtn').addEventListener('click',()=>{
   const pv=parseInt($('#fPrice').value);editing.price=isNaN(pv)?0:Math.max(0,pv);
   editing.type=editType;editing.zone=editZone;editing.qty=editQty;
   editing.keep=editKeep;editing.keepQty=editKeep?editQty:0;
+  sbItemUpdate(editing);
   closeEdit();renderItems();toast('保存しました');
 });
-$('#delBtn').addEventListener('click',()=>{if(!editing)return;const u=editing.uid;catalog=catalog.filter(i=>i.uid!==u);closeEdit();renderItems();toast('削除しました');});
+$('#delBtn').addEventListener('click',()=>{if(!editing)return;const u=editing.uid;catalog=catalog.filter(i=>i.uid!==u);sbItemDelete(u);closeEdit();renderItems();toast('削除しました');});
 
 /* zone admin */
 $('#gearBtn').addEventListener('click',openZoneAdmin);
@@ -680,7 +737,7 @@ $('#zAddBtn').addEventListener('click',()=>{
   if(!code){toast('記号を入れてね');return;}
   if(ZONES.some(z=>z.code===code)){toast('その記号はもうあるよ');return;}
   ZONES.splice(ZONES.length-1,0,{code,label:label||code,fam:'etc'}); // その他の手前に
-  recomputeZones();$('#zAddCode').value='';$('#zAddLabel').value='';renderZoneAdmin();
+  recomputeZones();$('#zAddCode').value='';$('#zAddLabel').value='';renderZoneAdmin();sbZonesSaveAll();
 });
 $('#zoneAdminArea').addEventListener('click',e=>{
   const btn=e.target.closest('button[data-act]');if(!btn)return;
@@ -688,8 +745,9 @@ $('#zoneAdminArea').addEventListener('click',e=>{
   if(act==='color'){openColorPicker(i);return;}
   if(act==='del'){
     if(ZONES[i].code==='その他'){toast('「その他」は消せないよ');return;}
-    const code=ZONES[i].code;catalog.forEach(it=>{if(it.zone===code)it.zone='その他';});
+    const code=ZONES[i].code;const changed=catalog.filter(it=>it.zone===code);changed.forEach(it=>it.zone='その他');
     ZONES.splice(i,1);recomputeZones();renderZoneAdmin();
+    sbZoneDelete(code);sbItemsBulk(changed);sbZonesSaveAll();
   }
 });
 $('#zoneAdminArea').addEventListener('input',e=>{
@@ -697,8 +755,10 @@ $('#zoneAdminArea').addEventListener('input',e=>{
   const i=+e.target.closest('.zrow').dataset.i;ZONES[i].label=inp.value;
 });
 $('#zoneAdminArea').addEventListener('change',e=>{
-  const inp=e.target.closest('input[data-act="code"]');if(!inp)return;
-  const i=+e.target.closest('.zrow').dataset.i;setZoneCode(i,inp.value);
+  const codeInp=e.target.closest('input[data-act="code"]');
+  if(codeInp){const i=+e.target.closest('.zrow').dataset.i;setZoneCode(i,codeInp.value);return;}
+  const labelInp=e.target.closest('input[data-act="label"]');
+  if(labelInp){const i=+e.target.closest('.zrow').dataset.i;sbZoneUpdate(i);}
 });
 $('#colorGrid').addEventListener('click',e=>{const b=e.target.closest('.cswatch');if(!b||colorTarget==null)return;ZONES[colorTarget].fam=b.dataset.color;closeColorPicker();});
 $('#customColor').addEventListener('input',e=>{if(colorTarget!=null)ZONES[colorTarget].fam=e.target.value;});
@@ -707,7 +767,7 @@ $('#colorBg').addEventListener('click',closeColorPicker);
 
 /* init */
 fillSort($('#listSort'),listSort);fillSort($('#editSort'),editSort);fillSort($('#itemSort'),itemSort);
-renderList();
+init();
 </script>
 </body>
 </html>
