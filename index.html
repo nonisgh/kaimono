@@ -191,8 +191,9 @@
   body.rev #listSeg{position:fixed;left:50%;transform:translateX(-50%);bottom:12vh;width:min(496px,calc(100vw - 28px));z-index:40;box-shadow:0 6px 18px rgba(80,55,25,.18);margin:0;}
   body.rev{padding-bottom:24px;}
   #revBar{display:none;}
-  body.rev #revBar{display:flex;gap:8px;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(2vh + env(safe-area-inset-bottom));z-index:41;}
-  .revbtn2{border:1.5px solid var(--line);background:var(--card);color:var(--green-d);font-family:inherit;font-weight:800;font-size:14px;padding:9px 14px;border-radius:999px;box-shadow:0 3px 10px rgba(80,55,25,.14);cursor:pointer;}
+  body.rev #revBar{display:flex;gap:8px;align-items:center;position:fixed;left:50%;transform:translateX(-50%);bottom:calc(2vh + env(safe-area-inset-bottom));z-index:41;max-width:calc(100vw - 20px);}
+  .revbtn2{flex:none;white-space:nowrap;height:46px;padding:0 16px;border:1.5px solid var(--line);background:var(--card);color:var(--green-d);font-family:inherit;font-weight:800;font-size:14px;border-radius:14px;box-shadow:0 3px 10px rgba(80,55,25,.14);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+  .revbtn2.mini{width:46px;padding:0;font-size:19px;}
   .revbtn2:active{transform:scale(.94);}
   .srow:active{transform:scale(.985);}
   @keyframes poof{60%{opacity:.35;}100%{opacity:0;transform:scale(.72);}}
@@ -244,8 +245,8 @@
     <div class="seg2" id="listSeg"><button class="on" data-seg="todo">未終了</button><button data-seg="done">終了</button></div>
     <div id="listArea"></div>
     <div id="revBar">
-      <button class="revbtn2" id="revUp" title="表示位置を上げる">⬆</button>
-      <button class="revbtn2" id="revDown" title="表示位置を下げる">⬇</button>
+      <button class="revbtn2 mini" id="revUp" title="表示位置を上げる">⬆</button>
+      <button class="revbtn2 mini" id="revDown" title="表示位置を下げる">⬇</button>
       <button class="revbtn2" id="revFs">⛶ 全画面</button>
     </div>
   </main>
