@@ -181,6 +181,13 @@
   body.fs .srow{padding:18px 16px;} body.fs .srow .nm{font-size:21px;}
   .fsbtn{position:fixed;top:10px;right:12px;z-index:55;border:0;background:var(--ink);color:#fff;font-family:inherit;font-weight:900;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;box-shadow:0 6px 16px -6px rgba(0,0,0,.5);display:none;align-items:center;gap:6px;}
   body.fs .fsbtn{display:inline-flex;}
+  /* リバース（下から積む）*/
+  body.rev #listTab{display:flex;flex-direction:column;}
+  body.rev #footer{order:0;position:static;padding:0;background:none;margin-bottom:10px;}
+  body.rev #footer .checkout{box-shadow:0 3px 0 var(--green-d);}
+  body.rev .toolrow{order:1;}
+  body.rev #listArea{order:2;}
+  body.rev #listSeg{order:3;margin-top:12px;margin-bottom:6px;}
   .drag{width:24px;flex:none;display:grid;place-items:center;color:#c4bda9;font-size:18px;cursor:grab;touch-action:none;user-select:none;}
   .sortable-ghost{opacity:.35;}
   .sortable-chosen{box-shadow:0 0 0 2px var(--green);}
@@ -221,7 +228,7 @@
       <div class="count">のこり <b id="remain">0</b> 品 ・ 合計(税込) <span class="yen" id="listTotal">¥0</span></div>
       <div style="display:flex;gap:6px;">
         <select class="sortsel" id="listSort"></select>
-        <button class="ghostbtn" id="centerBtn">🎯 センター</button>
+        <button class="ghostbtn" id="revBtn">🔄 下から</button>
         <button class="ghostbtn" id="fsEnter">⛶ 全画面</button>
       </div>
     </div>
@@ -439,7 +446,8 @@ let catalog=RAW.map(([zone,name,type,qty],i)=>({uid:uidSeq++,id:i+1,name,type,zo
 
 let history=[{bid:0,date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌'},{name:'りんご ×2'}]}];
 let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false;
-let itemSortables=[],zoneSortable=null,confirmCb=null,centerMode=false,histSort='pick';
+let itemSortables=[],zoneSortable=null,confirmCb=null,histSort='pick';
+let revMode=(localStorage.getItem('kaimono.rev')??'0')==='1';
 
 /* ===== クラウド同期（Supabase）。url/key が入っていれば二人共有が点灯。空ならローカル動作 ===== */
 const SB={
@@ -534,6 +542,7 @@ function subscribe(){
 }
 async function init(){
   initDB();
+  applyReverse();                                    // 保存済みのリバース設定を反映
   loadLocal(); renderActive();                       // まずローカルで即表示
   if(SB.ready()){
     try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); }
@@ -587,8 +596,11 @@ function renderList(){ saveLocal();
   if(show.length===0){area.innerHTML=`<div class="empty"><div class="e">${listSeg==='todo'?'🛒':'✅'}</div>${listSeg==='todo'?'未終了は ありません<br>「編集」で こすうを つけてね':'まだ 完了した品は ないよ'}</div>`;return;}
   const showBadge=listSort!=='zone';
   let html='';
-  for(const g of groupItems(sortItems(show,listSort),listSort)){
-    html+='<div class="grp">'+groupHeader(g);
+  let groups=groupItems(sortItems(show,listSort),listSort);
+  if(revMode){ groups=groups.slice().reverse(); groups.forEach(g=>g.items=g.items.slice().reverse()); }
+  for(const g of groups){
+    html+='<div class="grp">';
+    if(!revMode) html+=groupHeader(g);
     for(const it of g.items){
       const rem=Math.max(0,it.qty-(it.got||0));
       const multi=it.qty>1;
@@ -601,6 +613,7 @@ function renderList(){ saveLocal();
         <div class="body"><span class="nm">${esc(it.name)}</span>${qhtml}</div>
         ${showBadge?bdg(it.zone,'bdg'):''}</div>`;
     }
+    if(revMode) html+=groupHeader(g);
     html+='</div>';
   }
   area.innerHTML=html;
@@ -688,7 +701,13 @@ function renderHist(){ saveLocal();
   }
   area.innerHTML=html;
 }
-function centerTop(){ const el=document.querySelector('#listArea .srow'); if(!el)return; requestAnimationFrame(()=>{ const r=el.getBoundingClientRect(); const y=window.scrollY+r.top-(window.innerHeight/2)+(r.height/2); window.scrollTo({top:Math.max(0,y),behavior:'smooth'}); }); }
+function applyReverse(){
+  document.body.classList.toggle('rev',revMode);
+  const f=$('#footer'),lt=$('#listTab');
+  if(revMode){ lt.insertBefore(f,lt.firstChild); } else { document.body.appendChild(f); }
+  const b=$('#revBtn'); if(b)b.classList.toggle('on',revMode);
+}
+function scrollBottom(){ requestAnimationFrame(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})); }
 function renderActive(){if(activeTab==='list')renderList();else if(activeTab==='edit')renderEdit();else if(activeTab==='item')renderItems();else renderHist();saveLocal();}
 
 /* ===== 追加・編集 ===== */
@@ -930,12 +949,12 @@ $('#listArea').addEventListener('click',e=>{
   queueSet(it.uid,{got:it.got,done:it.done,picked_at:it.picked_at});
   haptic(completed?'done':'tap');
   renderList();
-  if(completed&&centerMode)centerTop();
+  if(completed&&revMode)scrollBottom();
 });
 
 $('#checkoutBtn').addEventListener('click',checkout);
 $('#fsEnter').addEventListener('click',()=>document.body.classList.add('fs'));
-$('#centerBtn').addEventListener('click',()=>{centerMode=!centerMode;$('#centerBtn').classList.toggle('on',centerMode);if(centerMode)centerTop();});
+$('#revBtn').addEventListener('click',()=>{revMode=!revMode;localStorage.setItem('kaimono.rev',revMode?'1':'0');applyReverse();renderList();if(revMode)scrollBottom();});
 $('#histArea').addEventListener('click',e=>{
   const b=e.target.closest('.histdel');if(!b)return;
   const bid=b.dataset.bid;
