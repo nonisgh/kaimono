@@ -150,6 +150,8 @@
   .zrow .zc{font-size:12px;font-weight:900;flex:none;min-width:34px;text-align:center;color:var(--ink-soft);}
   .zrow input{flex:1;min-width:0;font-family:inherit;font-size:14px;font-weight:700;border:1.5px solid var(--line);background:var(--paper);border-radius:9px;padding:7px 9px;outline:none;}
   .zrow input:focus{border-color:var(--green);}
+  .zrow .zcode{flex:none;width:62px;text-align:center;font-weight:900;}
+  .cswatch{width:38px;height:38px;border-radius:10px;border:2px solid rgba(0,0,0,.08);cursor:pointer;}
   .zbtn{width:30px;height:30px;border:1.5px solid var(--line);background:var(--paper2);border-radius:8px;font-size:13px;font-weight:900;color:var(--green-d);cursor:pointer;font-family:inherit;flex:none;}
   .zbtn.del{color:var(--hot);}
 
@@ -263,6 +265,15 @@
   <div class="sheetbtns" style="margin-top:12px;"><button class="b-done" id="zoneDone">とじる</button></div>
 </div>
 
+<div class="sheetbg" id="colorBg"></div>
+<div class="sheet" id="colorSheet">
+  <div class="grab"></div>
+  <h3>色をえらぶ</h3>
+  <div class="chips" id="colorGrid"></div>
+  <div class="field" style="margin-top:16px;"><label>カスタム色</label><input type="color" id="customColor" style="width:70px;height:46px;padding:4px;border:2px solid var(--line);border-radius:12px;background:var(--card);"></div>
+  <div class="sheetbtns"><button class="b-done" id="colorDone">とじる</button></div>
+</div>
+
 <div class="sheetbg" id="confBg"></div>
 <div class="sheet" id="confSheet" style="text-align:center;">
   <div class="grab"></div>
@@ -279,8 +290,22 @@ const FAM={
   paper:{bg:'#eceef0',ink:'#5b6470'}, veg:{bg:'#e6efe0',ink:'#456b3c'}, bread:{bg:'#f5ead6',ink:'#9a6f2e'},
   aisle:{bg:'#e7e9f5',ink:'#4b56a0'}, chill:{bg:'#d9f0eb',ink:'#27796b'}, meat:{bg:'#f7e1d8',ink:'#b85539'},
   fish:{bg:'#dceaf3',ink:'#356f99'}, aisle2:{bg:'#ede3f5',ink:'#7a4fa0'}, etc:{bg:'#eceae2',ink:'#7a756a'},
+  rose:{bg:'#fadce4',ink:'#b34a6b'}, lime:{bg:'#eaf3cf',ink:'#6f8a2e'}, sky:{bg:'#d8ecfa',ink:'#2f6fa0'},
+  amber:{bg:'#fbecc9',ink:'#a9772a'}, plum:{bg:'#ecd9f0',ink:'#8a3f8f'}, teal:{bg:'#d2efe9',ink:'#1f7a6e'},
+  sand:{bg:'#efe6d2',ink:'#8a7338'}, coral:{bg:'#fbe1d6',ink:'#c25a3a'}, indigo:{bg:'#e1e2f5',ink:'#4148a0'},
 };
 const PALETTE=Object.keys(FAM);
+function blend(hex,to,t){
+  const a=hex.replace('#',''),b=to.replace('#','');
+  const v=(s,o)=>parseInt(s.slice(o,o+2),16);
+  const m=(x,y)=>Math.round(x+(y-x)*t).toString(16).padStart(2,'0');
+  return '#'+m(v(a,0),v(b,0))+m(v(a,2),v(b,2))+m(v(a,4),v(b,4));
+}
+function zoneColorOf(z){
+  const c=z.fam;
+  if(typeof c==='string'&&c[0]==='#')return {bg:blend(c,'#ffffff',0.84),ink:blend(c,'#000000',0.12)};
+  return FAM[c]||FAM.etc;
+}
 
 /* ===== 売り場（回る順・編集可） ===== */
 let ZONES=[
@@ -377,7 +402,7 @@ let itemSortables=[],zoneSortable=null,confirmCb=null;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const yen=n=>'¥'+(n||0).toLocaleString('ja-JP');
-function bdg(code,cls){const z=zoneOf(code),f=FAM[z.fam];return `<span class="${cls||'badge'}" style="background:${f.bg};color:${f.ink}">${esc(code)}</span>`;}
+function bdg(code,cls){const z=zoneOf(code),f=zoneColorOf(z);return `<span class="${cls||'badge'}" style="background:${f.bg};color:${f.ink}">${esc(code)}</span>`;}
 
 const SORTLABELS=[['zone','売り場順'],['id','番号順'],['type','種別順'],['price','単価順'],['name','名前順']];
 function fillSort(sel,val){sel.innerHTML=SORTLABELS.map(([v,l])=>`<option value="${v}" ${v===val?'selected':''}>${l}</option>`).join('');}
@@ -421,7 +446,7 @@ function renderList(){
   for(const g of groupItems(sortItems(show,listSort),listSort)){
     html+='<div class="grp">'+groupHeader(g);
     for(const it of g.items){
-      const hot=it.qty>=2;const f=FAM[zoneOf(it.zone).fam];
+      const hot=it.qty>=2;const f=zoneColorOf(zoneOf(it.zone));
       html+=`<div class="srow ${it.done?'done':''} ${hot?'hot':''}" data-uid="${it.uid}" style="background:${f.bg};border-left:5px solid ${f.ink};">
         <div class="body"><span class="nm">${esc(it.name)}</span>${it.qty>1?`<span class="qty">×${it.qty}</span>`:''}</div>
         ${showBadge?bdg(it.zone,'bdg'):''}</div>`;
@@ -547,17 +572,30 @@ function closeEdit(){$('#sheetBg').classList.remove('open');$('#sheet').classLis
 function renderZoneAdmin(){
   let html='';
   ZONES.forEach((z,i)=>{
-    const f=FAM[z.fam];
+    const f=zoneColorOf(z);
     html+=`<div class="zrow" data-i="${i}">
       <span class="drag">≡</span>
-      <button class="swatch" data-act="color" style="background:${f.bg}"></button>
-      <span class="zc">${esc(z.code)}</span>
-      <input data-act="label" value="${esc(z.label)}">
+      <button class="swatch" data-act="color" style="background:${f.ink}"></button>
+      <input class="zcode" data-act="code" value="${esc(z.code)}">
+      <input class="zlabel" data-act="label" value="${esc(z.label)}">
       <button class="zbtn del" data-act="del">✕</button></div>`;
   });
   $('#zoneAdminArea').innerHTML=html;
   if(zoneSortable){zoneSortable.destroy();zoneSortable=null;}
   if(typeof Sortable!=='undefined'){ zoneSortable=Sortable.create($('#zoneAdminArea'),{handle:'.drag',animation:150,onEnd:onZoneDrop}); }
+}
+let colorTarget=null;
+function renderColorGrid(){ $('#colorGrid').innerHTML=PALETTE.map(k=>`<button class="cswatch" data-color="${k}" style="background:${FAM[k].ink}"></button>`).join(''); }
+function openColorPicker(i){colorTarget=i;renderColorGrid();const fam=ZONES[i].fam;$('#customColor').value=(typeof fam==='string'&&fam[0]==='#')?fam:'#88aa66';$('#colorBg').classList.add('open');$('#colorSheet').classList.add('open');}
+function closeColorPicker(){$('#colorBg').classList.remove('open');$('#colorSheet').classList.remove('open');colorTarget=null;renderZoneAdmin();}
+function setZoneCode(i,newCode){
+  newCode=newCode.trim();const old=ZONES[i].code;
+  if(!newCode||newCode===old){renderZoneAdmin();return;}
+  if(old==='その他'){toast('「その他」の記号は変えられないよ');renderZoneAdmin();return;}
+  if(ZONES.some((z,j)=>j!==i&&z.code===newCode)){toast('その記号はもうあるよ');renderZoneAdmin();return;}
+  ZONES[i].code=newCode;
+  catalog.forEach(it=>{if(it.zone===old)it.zone=newCode;});
+  recomputeZones();renderZoneAdmin();
 }
 function onZoneDrop(){
   const order=[...document.querySelectorAll('#zoneAdminArea .zrow')].map(r=>ZONES[+r.dataset.i]);
@@ -647,18 +685,25 @@ $('#zAddBtn').addEventListener('click',()=>{
 $('#zoneAdminArea').addEventListener('click',e=>{
   const btn=e.target.closest('button[data-act]');if(!btn)return;
   const i=+e.target.closest('.zrow').dataset.i;const act=btn.dataset.act;
-  if(act==='color'){const z=ZONES[i];z.fam=PALETTE[(PALETTE.indexOf(z.fam)+1)%PALETTE.length];}
-  else if(act==='del'){
+  if(act==='color'){openColorPicker(i);return;}
+  if(act==='del'){
     if(ZONES[i].code==='その他'){toast('「その他」は消せないよ');return;}
     const code=ZONES[i].code;catalog.forEach(it=>{if(it.zone===code)it.zone='その他';});
-    ZONES.splice(i,1);
-  } else return;
-  recomputeZones();renderZoneAdmin();
+    ZONES.splice(i,1);recomputeZones();renderZoneAdmin();
+  }
 });
 $('#zoneAdminArea').addEventListener('input',e=>{
   const inp=e.target.closest('input[data-act="label"]');if(!inp)return;
   const i=+e.target.closest('.zrow').dataset.i;ZONES[i].label=inp.value;
 });
+$('#zoneAdminArea').addEventListener('change',e=>{
+  const inp=e.target.closest('input[data-act="code"]');if(!inp)return;
+  const i=+e.target.closest('.zrow').dataset.i;setZoneCode(i,inp.value);
+});
+$('#colorGrid').addEventListener('click',e=>{const b=e.target.closest('.cswatch');if(!b||colorTarget==null)return;ZONES[colorTarget].fam=b.dataset.color;closeColorPicker();});
+$('#customColor').addEventListener('input',e=>{if(colorTarget!=null)ZONES[colorTarget].fam=e.target.value;});
+$('#colorDone').addEventListener('click',closeColorPicker);
+$('#colorBg').addEventListener('click',closeColorPicker);
 
 /* init */
 fillSort($('#listSort'),listSort);fillSort($('#editSort'),editSort);fillSort($('#itemSort'),itemSort);
