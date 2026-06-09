@@ -937,10 +937,15 @@ $('#editSort').addEventListener('change',e=>{editSort=e.target.value;renderEdit(
 $('#itemSort').addEventListener('change',e=>{itemSort=e.target.value;renderItems();});
 $('#histSort').addEventListener('change',e=>{histSort=e.target.value;renderHist();});
 
-let _sx=0,_sy=0,_su=null,_btn=null;
-$('#editArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.erow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;const b=e.target.closest('[data-act]');_btn=b?b.dataset.act:null;});
-$('#editArea').addEventListener('pointercancel',()=>{_su=null;});
+let _sx=0,_sy=0,_su=null,_btn=null,_lpTimer=null,_lpFired=false;
+function startLongPress(uid){ _lpFired=false; clearTimeout(_lpTimer); _lpTimer=setTimeout(()=>{ _lpFired=true; const it=catalog.find(i=>i.uid===uid); if(it){ haptic('done'); openEdit(it); } },500); }
+function cancelLongPress(){ clearTimeout(_lpTimer); }
+$('#editArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.erow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;const b=e.target.closest('[data-act]');_btn=b?b.dataset.act:null;startLongPress(_su);});
+$('#editArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10||Math.abs(e.clientY-_sy)>10)cancelLongPress();});
+$('#editArea').addEventListener('pointercancel',()=>{_su=null;cancelLongPress();});
 $('#editArea').addEventListener('pointerup',e=>{
+  cancelLongPress();
+  if(_lpFired){_lpFired=false;_su=null;return;}            // 長押しで編集を開いた→個数操作はしない
   if(_su==null)return;const uid=_su;_su=null;const btn=_btn;_btn=null;
   const it=catalog.find(i=>i.uid===uid);if(!it)return;
   const dx=e.clientX-_sx,dy=e.clientY-_sy;
@@ -964,7 +969,12 @@ $('#itemArea').addEventListener('click',e=>{
   }
   openEdit(it);
 });
+$('#listArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.srow');if(!row)return;_sx=e.clientX;_sy=e.clientY;startLongPress(+row.dataset.uid);});
+$('#listArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10||Math.abs(e.clientY-_sy)>10)cancelLongPress();});
+$('#listArea').addEventListener('pointerup',cancelLongPress);
+$('#listArea').addEventListener('pointercancel',cancelLongPress);
 $('#listArea').addEventListener('click',e=>{
+  if(_lpFired){_lpFired=false;return;}                       // 長押しで編集を開いた→カゴ操作はしない
   const row=e.target.closest('.srow');if(!row)return;
   const it=catalog.find(i=>i.uid===+row.dataset.uid);if(!it)return;
   if(listSeg==='done'){ it.done=false;it.got=0;it.picked_at=null;queueSet(it.uid,{done:false,got:0,picked_at:null});haptic();renderList();return; } // 終了側タップで戻す
