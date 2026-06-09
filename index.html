@@ -233,7 +233,7 @@
     <div class="addbar"><input id="editAddInput" type="text" placeholder="臨時の品を追加（例：牛乳）" enterkeyhint="done"><button class="addbtn" id="editAddBtn">追加</button></div>
     <div style="display:flex;gap:8px;margin:0 0 4px;flex-wrap:wrap;">
       <button class="ghostbtn" id="loadKeepBtn">★ 定番を読込</button>
-      <button class="ghostbtn" id="importRecentBtn">🕒 10日以内を取込</button>
+      <button class="ghostbtn" id="importRecentBtn">🕒 前回の買い物を取込</button>
     </div>
     <div class="toolrow">
       <div class="count">今回 <b id="tripCount">0</b> 品 ・ 合計(税込) <span class="yen" id="editTotal">¥0</span></div>
@@ -463,12 +463,12 @@ function sbZoneUpdate(i){ if(!SB.ready())return; const z=ZONES[i]; if(!z)return;
 function sbZoneDelete(code){ if(!SB.ready())return; syncPulse(); SB.client.from('zones').delete().eq('code',code).then(r=>{if(r.error)console.error(r.error);}); }
 async function sbZoneRename(oldCode,newCode){ if(!SB.ready())return; syncPulse(); await SB.client.from('zones').update({code:newCode}).eq('code',oldCode); await SB.client.from('items').update({zone_code:newCode}).eq('zone_code',oldCode); }
 async function syncZonesFull(){ if(!SB.ready())return; syncPulse(); const del=await SB.client.from('zones').delete().not('code','is',null); if(del.error){console.error(del.error);return;} const ins=await SB.client.from('zones').insert(ZONES.map((z,i)=>zoneRow(z,i))); if(ins.error)console.error(ins.error); }
-function sbLogInsert(batchId,label,when,entries){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').insert(entries.map(e=>({batch_id:batchId,archived_at:when,label,name:e.name,qty:e.qty||1,price:e.price||0}))).then(r=>{if(r.error)console.error(r.error);}); }
+function sbLogInsert(batchId,label,when,entries){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').insert(entries.map(e=>({batch_id:batchId,archived_at:when,label,name:e.name,qty:e.qty||1,price:e.price||0,zone_code:e.zone||null,item_id:e.itemId??null}))).then(r=>{if(r.error)console.error(r.error);}); }
 function sbLogDelete(bid){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').delete().eq('batch_id',bid).then(r=>{if(r.error)console.error(r.error);}); }
 
 async function loadZones(){ const {data,error}=await SB.client.from('zones').select('*').order('sort_order'); if(error){console.error(error);return;} if(data&&data.length){ const seen=new Set(),arr=[]; for(const r of data){ if(seen.has(r.code))continue; seen.add(r.code); arr.push({code:r.code,label:r.label,fam:r.color}); } ZONES=arr; if(!ZONES.some(z=>z.code==='その他'))ZONES.push({code:'その他',label:'その他',fam:'etc'}); recomputeZones(); } }
 async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } }
-async function loadHistory(){ const {data,error}=await SB.client.from('purchase_log').select('*').order('archived_at',{ascending:false}); if(error){console.error(error);return;} const map=new Map(); for(const r of data){ if(!map.has(r.batch_id))map.set(r.batch_id,{bid:r.batch_id,date:r.label,list:[]}); map.get(r.batch_id).list.push({name:r.qty>1?`${r.name} ×${r.qty}`:r.name}); } history=[...map.values()]; }
+async function loadHistory(){ const {data,error}=await SB.client.from('purchase_log').select('*').order('archived_at',{ascending:false}); if(error){console.error(error);return;} const map=new Map(); for(const r of data){ if(!map.has(r.batch_id))map.set(r.batch_id,{bid:r.batch_id,date:r.label,list:[]}); map.get(r.batch_id).list.push({name:r.qty>1?`${r.name} ×${r.qty}`:r.name,zone:r.zone_code||null,itemId:r.item_id??null}); } history=[...map.values()]; }
 async function seedIfEmpty(){
   const z=await SB.client.from('zones').select('code',{count:'exact',head:true});
   if(!z.error && z.count===0) await SB.client.from('zones').insert(ZONES.map((zz,i)=>zoneRow(zz,i)));
@@ -660,11 +660,12 @@ function renderItems(){ saveLocal();
 function renderHist(){ saveLocal();
   const area=$('#histArea');
   if(history.length===0){area.innerHTML=`<div class="empty"><div class="e">📦</div>まだ 記録は ないよ</div>`;return;}
-  const nameZone=new Map(catalog.map(i=>[i.name,i.zone]));
+  const byId=new Map(catalog.map(i=>[i.uid,i.zone]));
+  const byName=new Map(catalog.map(i=>[i.name,i.zone]));
   let html='';
   for(const d of history){
     html+=`<div class="daygroup"><div class="dayhead"><span>${esc(d.date)}</span><button class="histdel" data-bid="${d.bid==null?'':d.bid}">✕ 消す</button></div>`;
-    const items=d.list.map(it=>{const base=it.name.replace(/\s*×\d+$/,'');return {it,zone:nameZone.get(base)||'その他'};});
+    const items=d.list.map(it=>{const base=it.name.replace(/\s*×\d+$/,'');const zone=it.zone||(it.itemId!=null&&byId.get(Number(it.itemId)))||byName.get(base)||'その他';return {it,zone};});
     if(histSort==='name')items.sort((a,b)=>a.it.name.localeCompare(b.it.name,'ja'));
     else items.sort((a,b)=>(zoneIdx[a.zone]??999)-(zoneIdx[b.zone]??999));
     for(const {it,zone} of items){
@@ -705,10 +706,10 @@ function checkout(){
   const now=new Date(),wd=['日','月','火','水','木','金','土'][now.getDay()];
   const label=`${now.getMonth()+1}月${now.getDate()}日(${wd}) ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const sd=sortItems(done,'zone');
-  const entries=sd.map(i=>({name:i.qty>1?`${i.name} ×${i.qty}`:i.name}));
+  const entries=sd.map(i=>({name:i.qty>1?`${i.name} ×${i.qty}`:i.name,zone:i.zone,itemId:i.uid}));
   const bid=Date.now();
   history.unshift({bid,date:label,list:entries});
-  if(SB.ready()) sbLogInsert(bid,label,now.toISOString(),sd.map(i=>({name:i.name,qty:i.qty,price:i.price})));
+  if(SB.ready()) sbLogInsert(bid,label,now.toISOString(),sd.map(i=>({name:i.name,qty:i.qty,price:i.price,zone:i.zone,itemId:i.uid})));
   done.forEach(i=>{i.done=false;i.qty=0;});
   sbBulkSet(done.map(i=>({id:i.uid,qty:0,done:false})));
   renderList();renderHist();toast(`${done.length}こ をアーカイブしました 🎉`);
@@ -722,13 +723,20 @@ function loadKeep(){
 }
 async function importRecent(){
   if(!SB.ready()){toast('同期ONのときに使えます');return;}
-  const since=new Date(Date.now()-10*864e5).toISOString();
-  const {data,error}=await SB.client.from('purchase_log').select('name,qty,archived_at').gte('archived_at',since).order('archived_at',{ascending:false});
+  const {data,error}=await SB.client.from('purchase_log').select('name,qty,item_id,batch_id,archived_at').order('archived_at',{ascending:false}).limit(300);
   if(error){console.error(error);toast('取込に失敗');return;}
-  const want=new Map(); for(const r of data){ if(!want.has(r.name)) want.set(r.name,r.qty||1); } // 新しい順なので最初＝最新
-  const changed=[]; catalog.forEach(i=>{ if(want.has(i.name)){ i.qty=want.get(i.name); changed.push(i); } });
+  if(!data.length){toast('履歴がまだ無いよ');return;}
+  const latest=data[0].batch_id;
+  const rows=data.filter(r=>r.batch_id===latest);
+  const byId=new Map(catalog.map(i=>[i.uid,i]));
+  const byName=new Map(catalog.map(i=>[i.name,i]));
+  const changed=[];
+  for(const r of rows){
+    const it=(r.item_id!=null&&byId.get(Number(r.item_id)))||byName.get(r.name);
+    if(it){ it.qty=r.qty||1; changed.push(it); }
+  }
   sbBulkSet(changed.map(i=>({id:i.uid,qty:i.qty})));
-  renderEdit();toast(`最新の履歴から ${changed.length}品 を取り込みました`);
+  renderEdit();toast(`前回の買い物から ${changed.length}品 を取り込みました`);
 }
 
 function renumber(){
