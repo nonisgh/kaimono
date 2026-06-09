@@ -553,8 +553,9 @@ function renderEdit(){
   for(const g of groupItems(sortItems(catalog.filter(i=>!i.hidden),editSort),editSort)){
     html+='<div class="grp">'+groupHeader(g);
     for(const it of g.items){
-      const hot=it.qty>=2;
-      html+=`<div class="erow ${it.qty>0?'has':''} ${hot?'hot':''}" data-uid="${it.uid}">
+      const hot=it.qty>=2;const f=zoneColorOf(zoneOf(it.zone));
+      const st=it.qty>0?`style="background:${f.bg};border-left:5px solid ${f.ink};"`:'';
+      html+=`<div class="erow ${it.qty>0?'has':''} ${hot?'hot':''}" data-uid="${it.uid}" ${st}>
         ${showBadge?bdg(it.zone,'bdg'):''}
         <div class="nm">${esc(it.name)}</div>
         <div class="estep"><button data-act="minus">−</button><span class="qbig">${it.qty}</span><button data-act="plus">＋</button></div></div>`;
@@ -589,9 +590,10 @@ function renderItems(){
   for(const g of groupItems(sortItems(catalog,itemSort),itemSort)){
     html+='<div class="grp">'+groupHeader(g)+`<div class="itemsbox" data-zone="${g.kind==='zone'?esc(g.code):''}">`;
     for(const it of g.items){
+      const f=zoneColorOf(zoneOf(it.zone));
       html+=`<div class="irow" data-uid="${it.uid}">
         ${draggable?'<span class="drag">≡</span>':''}
-        <span class="idn">${it.id}</span>${bdg(it.zone,'bdg')}
+        <span class="idn" style="background:${f.bg};color:${f.ink}">${it.id}</span>${bdg(it.zone,'bdg')}
         ${it.keep?'<span class="star">★</span>':''}
         <span class="nm">${esc(it.name)}</span>
         <span class="type">${esc(it.type)}</span>
@@ -649,9 +651,9 @@ function checkout(){
   renderList();renderHist();toast(`${done.length}こ をアーカイブしました 🎉`);
 }
 function loadKeep(){
-  const ks=catalog.filter(i=>i.keep);
-  if(!ks.length){toast('★定番がまだ無いよ（品目の編集でON）');return;}
-  ks.forEach(i=>{i.qty=i.keepQty;});
+  const ks=catalog.filter(i=>i.keep&&i.keepQty>0);
+  if(!ks.length){toast('★定番がまだ無いよ（品目の編集でON＋個数指定）');return;}
+  ks.forEach(i=>{i.qty=Math.max(i.qty,i.keepQty);});
   sbBulkSet(ks.map(i=>({id:i.uid,qty:i.qty})));
   renderEdit();toast(`定番 ${ks.length}品 を読み込みました`);
 }
@@ -810,7 +812,7 @@ $('#saveBtn').addEventListener('click',()=>{
   const idv=parseInt($('#fId').value);if(!isNaN(idv))editing.id=idv;
   const pv=parseInt($('#fPrice').value);editing.price=isNaN(pv)?0:Math.max(0,pv);
   editing.type=editType;editing.zone=editZone;editing.qty=editQty;
-  editing.keep=editKeep;editing.keepQty=editKeep?editQty:0;editing.hidden=editHidden;
+  editing.keep=editKeep;editing.keepQty=editKeep?Math.max(editQty,1):0;editing.hidden=editHidden;
   sbItemUpdate(editing);
   closeEdit();renderItems();toast('保存しました');
 });
