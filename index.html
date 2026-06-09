@@ -247,6 +247,7 @@
       <div class="count">全 <b id="itemCount">0</b> 品目</div>
       <div style="display:flex;gap:6px;">
         <select class="sortsel" id="itemSort"></select>
+        <button class="ghostbtn" id="dedupeBtn">🧹 重複</button>
         <button class="ghostbtn" id="renumBtn">番号振り直し</button>
       </div>
     </div>
@@ -672,6 +673,34 @@ function renumber(){
   sortItems(catalog,'zone').forEach((it,i)=>it.id=i+1);
   sbBulkSet(catalog.map(i=>({id:i.uid,item_no:i.id})));renderItems();toast('売り場順に番号を振り直しました');
 }
+function dedupeItems(){
+  const byName=new Map();
+  for(const it of catalog){ const k=it.name.trim(); if(!byName.has(k))byName.set(k,[]); byName.get(k).push(it); }
+  const dups=[...byName.values()].filter(a=>a.length>1);
+  if(!dups.length){toast('重複は見つかりませんでした 👍');return;}
+  const total=dups.reduce((a,g)=>a+g.length-1,0);
+  askConfirm('重複した品目を整理',`同じ名前が ${dups.length}種・計 ${total}件 だぶっています。各1件にまとめます（個数は多い方を残す）`,()=>{
+    const removeUids=[],kept=[];
+    for(const g of dups){
+      g.sort((a,b)=>(a.uid||0)-(b.uid||0));
+      const keep=g[0];
+      for(const x of g.slice(1)){
+        keep.qty=Math.max(keep.qty,x.qty);
+        keep.keepQty=Math.max(keep.keepQty,x.keepQty);
+        keep.keep=keep.keep||x.keep;
+        if(!keep.price&&x.price)keep.price=x.price;
+        removeUids.push(x.uid);
+      }
+      kept.push(keep);
+    }
+    catalog=catalog.filter(i=>!removeUids.includes(i.uid));
+    if(SB.ready()){
+      removeUids.forEach(uid=>{if(uid!=null)sbItemDelete(uid);});
+      sbBulkSet(kept.map(i=>({id:i.uid,qty:i.qty,keep:i.keep,keep_qty:i.keepQty})));
+    }
+    renderItems();renderEdit();renderList();toast(`${total}件の重複を整理しました`);
+  });
+}
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900);}
 
 function renderTypeChips(){$('#typeChips').innerHTML=TYPES.map(t=>`<button class="chip ${t===editType?'on':''}" data-type="${esc(t)}">${esc(t)}</button>`).join('');}
@@ -742,6 +771,7 @@ $('#editAddBtn').addEventListener('click',()=>addFrom('#editAddInput',renderEdit
 $('#editAddInput').addEventListener('keydown',e=>{if(e.key==='Enter')addFrom('#editAddInput',renderEdit);});
 $('#clearBtn').addEventListener('click',clearAll);
 $('#renumBtn').addEventListener('click',renumber);
+$('#dedupeBtn').addEventListener('click',dedupeItems);
 $('#confBg').addEventListener('click',closeConfirm);
 $('#confNo').addEventListener('click',closeConfirm);
 $('#confYes').addEventListener('click',()=>{const cb=confirmCb;closeConfirm();if(cb)cb();});
