@@ -261,7 +261,13 @@
   </main>
 
   <!-- HISTORY -->
-  <main id="histTab" class="hidden"><div id="histArea"></div></main>
+  <main id="histTab" class="hidden">
+    <div class="toolrow">
+      <div class="count">買ったもの の記録</div>
+      <select class="sortsel" id="histSort"></select>
+    </div>
+    <div id="histArea"></div>
+  </main>
 </div>
 
 <button class="fsbtn" id="fsExit">✕ 全画面をとじる</button>
@@ -428,7 +434,7 @@ let catalog=RAW.map(([zone,name,type,qty],i)=>({uid:uidSeq++,id:i+1,name,type,zo
 
 let history=[{bid:0,date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌'},{name:'りんご ×2'}]}];
 let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false;
-let itemSortables=[],zoneSortable=null,confirmCb=null,centerMode=false;
+let itemSortables=[],zoneSortable=null,confirmCb=null,centerMode=false,histSort='zone';
 
 /* ===== クラウド同期（Supabase）。url/key が入っていれば二人共有が点灯。空ならローカル動作 ===== */
 const SB={
@@ -654,8 +660,19 @@ function renderItems(){ saveLocal();
 function renderHist(){ saveLocal();
   const area=$('#histArea');
   if(history.length===0){area.innerHTML=`<div class="empty"><div class="e">📦</div>まだ 記録は ないよ</div>`;return;}
+  const nameZone=new Map(catalog.map(i=>[i.name,i.zone]));
   let html='';
-  for(const d of history){html+=`<div class="daygroup"><div class="dayhead"><span>${esc(d.date)}</span><button class="histdel" data-bid="${d.bid==null?'':d.bid}">✕ 消す</button></div>`;for(const it of d.list){html+=`<div class="hitem"><span class="dot"></span><span class="hn">${esc(it.name)}</span></div>`;}html+=`</div>`;}
+  for(const d of history){
+    html+=`<div class="daygroup"><div class="dayhead"><span>${esc(d.date)}</span><button class="histdel" data-bid="${d.bid==null?'':d.bid}">✕ 消す</button></div>`;
+    const items=d.list.map(it=>{const base=it.name.replace(/\s*×\d+$/,'');return {it,zone:nameZone.get(base)||'その他'};});
+    if(histSort==='name')items.sort((a,b)=>a.it.name.localeCompare(b.it.name,'ja'));
+    else items.sort((a,b)=>(zoneIdx[a.zone]??999)-(zoneIdx[b.zone]??999));
+    for(const {it,zone} of items){
+      const f=zoneColorOf(zoneOf(zone));
+      html+=`<div class="hitem" style="background:${f.bg};border-left:5px solid ${f.ink};">${bdg(zone,'bdg')}<span class="hn">${esc(it.name)}</span></div>`;
+    }
+    html+=`</div>`;
+  }
   area.innerHTML=html;
 }
 function centerTop(){ const el=document.querySelector('#listArea .srow'); if(!el)return; requestAnimationFrame(()=>{ const r=el.getBoundingClientRect(); const y=window.scrollY+r.top-(window.innerHeight/2)+(r.height/2); window.scrollTo({top:Math.max(0,y),behavior:'smooth'}); }); }
@@ -706,12 +723,12 @@ function loadKeep(){
 async function importRecent(){
   if(!SB.ready()){toast('同期ONのときに使えます');return;}
   const since=new Date(Date.now()-10*864e5).toISOString();
-  const {data,error}=await SB.client.from('purchase_log').select('name,qty,archived_at').gte('archived_at',since);
+  const {data,error}=await SB.client.from('purchase_log').select('name,qty,archived_at').gte('archived_at',since).order('archived_at',{ascending:false});
   if(error){console.error(error);toast('取込に失敗');return;}
-  const want=new Map(); for(const r of data){ want.set(r.name,Math.max(want.get(r.name)||0,r.qty||1)); }
+  const want=new Map(); for(const r of data){ if(!want.has(r.name)) want.set(r.name,r.qty||1); } // 新しい順なので最初＝最新
   const changed=[]; catalog.forEach(i=>{ if(want.has(i.name)){ i.qty=want.get(i.name); changed.push(i); } });
   sbBulkSet(changed.map(i=>({id:i.uid,qty:i.qty})));
-  renderEdit();toast(`10日以内の ${changed.length}品 を取り込みました`);
+  renderEdit();toast(`最新の履歴から ${changed.length}品 を取り込みました`);
 }
 
 function renumber(){
@@ -837,6 +854,7 @@ $('#listSeg').addEventListener('click',e=>{const b=e.target.closest('button');if
 $('#listSort').addEventListener('change',e=>{listSort=e.target.value;renderList();});
 $('#editSort').addEventListener('change',e=>{editSort=e.target.value;renderEdit();});
 $('#itemSort').addEventListener('change',e=>{itemSort=e.target.value;renderItems();});
+$('#histSort').addEventListener('change',e=>{histSort=e.target.value;renderHist();});
 
 let _sx=0,_sy=0,_su=null,_btn=null;
 $('#editArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.erow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;const b=e.target.closest('[data-act]');_btn=b?b.dataset.act:null;});
@@ -943,6 +961,7 @@ $('#colorBg').addEventListener('click',closeColorPicker);
 
 /* init */
 fillSort($('#listSort'),listSort);fillSort($('#editSort'),editSort);fillSort($('#itemSort'),itemSort);
+$('#histSort').innerHTML=[['zone','売り場順'],['name','名前順']].map(([v,l])=>`<option value="${v}" ${v===histSort?'selected':''}>${l}</option>`).join('');
 init();
 </script>
 </body>
