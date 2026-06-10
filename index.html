@@ -600,7 +600,7 @@ let catalog=RAW.map(([zone,name,type,qty],i)=>({uid:uidSeq++,id:i+1,name,type,zo
 let history=[{bid:0,date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌'},{name:'りんご ×2'}]}];
 let editingAlert=null,aZone='その他',aShow=true;   // アラート編集中の品目（catalog内）。aShow=リスト表示ON
 let bookmarks=[];                       // {uid,name,data:[{uid,name,qty}],created_at} リストの買うものプリセット
-let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editLock=false,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false;
+let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editLock=false,editingNew=false,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false;
 let itemSortables=[],zoneSortable=null,confirmCb=null,histSort='pick';
 let revMode=(localStorage.getItem('kaimono.rev')??'0')==='1';
 let revPad=parseFloat(localStorage.getItem('kaimono.revpad'))||24; // 表示位置(vh)・端末ごと（同期しない）
@@ -1059,19 +1059,30 @@ function renderHideBtn(){const b=$('#hideToggle');b.classList.toggle('on',!editH
 function renderSheetImage(){
   const fr=$('#imgFrame'),del=$('#imgDel'),pick=$('#imgPick'),busy=$('#imgBusy');
   busy.style.display='none';
+  if(editingNew){ fr.classList.remove('has');fr.innerHTML='<span class="ph">保存すると<br>写真を追加できます</span>'; pick.style.display='none'; del.style.display='none'; return; }
+  pick.style.display='';
   if(editing&&editing.image){ fr.classList.add('has');fr.innerHTML=`<img src="${editing.image}" alt="">`; del.style.display=''; pick.textContent='📷 差し替え'; }
   else{ fr.classList.remove('has');fr.innerHTML='<span class="ph">写真なし<br>クリック / ドラッグ&ドロップ</span>'; del.style.display='none'; pick.textContent='📷 写真を追加'; }
 }
-function openEdit(it,lock){
-  editing=it;editLock=!!lock;editZone=it.zone;editType=it.type;editQty=Math.max(1,it.keepQty||1);editKeep=it.keep;editHidden=!!it.hidden;
+function openEdit(it,lock,isNew){
+  editing=it;editLock=!!lock;editingNew=!!isNew;editZone=it.zone;editType=it.type;editQty=Math.max(1,it.keepQty||1);editKeep=it.keep;editHidden=!!it.hidden;
   $('#fName').value=it.name;$('#fProduct').value=it.product||'';$('#fId').value=it.id;$('#fPrice').value=it.price||'';$('#qVal').textContent=editQty;
   renderTypeChips();renderZoneChips();renderKeepBtn();renderHideBtn();renderSheetImage();
+  $('#sheetTitle').textContent=editingNew?'品目を追加':'品目の編集';
+  $('#copyBtn').style.display=editingNew?'none':'';
   const del=$('#delBtn');
-  if(editLock){del.textContent='とじる';del.classList.remove('b-del');del.classList.add('b-cancel');}
+  if(editingNew){del.textContent='やめる';del.classList.remove('b-del');del.classList.add('b-cancel');}
+  else if(editLock){del.textContent='とじる';del.classList.remove('b-del');del.classList.add('b-cancel');}
   else{del.textContent='削除';del.classList.add('b-del');del.classList.remove('b-cancel');}
   $('#sheetBg').classList.add('open');$('#sheet').classList.add('open');
 }
-function closeEdit(){$('#sheetBg').classList.remove('open');$('#sheet').classList.remove('open');editing=null;editLock=false;}
+function openNewEdit(prefillName){
+  const maxId=catalog.reduce((a,b)=>Math.max(a,b.id),0);
+  const nm=(prefillName||'').trim();
+  const zone=nm?guessZone(nm):'その他',type=nm?guessType(nm):'その他';
+  openEdit({uid:null,id:maxId+1,name:nm,type,zone,price:0,qty:0,done:false,keep:false,keepQty:0,hidden:false,product:'',image:''},false,true);
+}
+function closeEdit(){$('#sheetBg').classList.remove('open');$('#sheet').classList.remove('open');editing=null;editLock=false;editingNew=false;}
 
 /* ===== 売り場の管理 ===== */
 function renderZoneAdmin(){
@@ -1124,8 +1135,8 @@ async function closeZoneAdmin(){
 }
 
 /* ===== events ===== */
-$('#addBtn').addEventListener('click',()=>addFrom('#addInput',renderItems));
-$('#addInput').addEventListener('keydown',e=>{if(e.key==='Enter')addFrom('#addInput',renderItems);});
+$('#addBtn').addEventListener('click',()=>{const v=$('#addInput').value;$('#addInput').value='';openNewEdit(v);});
+$('#addInput').addEventListener('keydown',e=>{if(e.key==='Enter'){const v=$('#addInput').value;$('#addInput').value='';openNewEdit(v);}});
 $('#editAddBtn').addEventListener('click',()=>addFrom('#editAddInput',renderEdit));
 $('#editAddInput').addEventListener('keydown',e=>{if(e.key==='Enter')addFrom('#editAddInput',renderEdit);});
 $('#clearBtn').addEventListener('click',clearAll);
@@ -1382,7 +1393,7 @@ $('#imgDel').addEventListener('click',()=>{
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){flushWrites();saveLocal();} else refresh(); });
 window.addEventListener('pagehide',()=>{flushWrites();saveLocal();});
 window.addEventListener('focus',refresh);
-$('#saveBtn').addEventListener('click',()=>{
+$('#saveBtn').addEventListener('click',async()=>{
   if(!editing)return;
   editing.name=$('#fName').value.trim()||editing.name;
   editing.product=$('#fProduct').value.trim();
@@ -1390,10 +1401,18 @@ $('#saveBtn').addEventListener('click',()=>{
   const pv=parseInt($('#fPrice').value);editing.price=isNaN(pv)?0:Math.max(0,pv);
   editing.type=editType;editing.zone=editZone;
   editing.keep=editKeep;editing.keepQty=editKeep?Math.max(editQty,1):0;editing.hidden=editHidden;
+  if(editingNew){
+    if(!editing.name){toast('なまえを入れてね');return;}
+    if(SB.ready()){ const id=await sbItemInsert(editing); if(id==null){toast('追加に失敗しました');return;} editing.uid=id; }
+    else { editing.uid=uidSeq++; }
+    catalog.push(editing);
+    closeEdit();renderItems();toast(`「${editing.name}」を追加しました`);
+    return;
+  }
   sbItemUpdate(editing);
   closeEdit();renderItems();toast('保存しました');
 });
-$('#delBtn').addEventListener('click',()=>{if(!editing)return;if(editLock){closeEdit();return;}const u=editing.uid;catalog=catalog.filter(i=>i.uid!==u);sbItemDelete(u);closeEdit();renderItems();toast('削除しました');});
+$('#delBtn').addEventListener('click',()=>{if(!editing)return;if(editingNew||editLock){closeEdit();return;}const u=editing.uid;catalog=catalog.filter(i=>i.uid!==u);sbItemDelete(u);closeEdit();renderItems();toast('削除しました');});
 $('#copyBtn').addEventListener('click',async()=>{
   if(!editing)return;
   let name=$('#fName').value.trim()||editing.name;
