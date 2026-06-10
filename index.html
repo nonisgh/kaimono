@@ -196,7 +196,7 @@
   .imgpop.open{opacity:1;pointer-events:auto;}
   .imgpop-card{width:100%;max-width:440px;display:flex;flex-direction:column;align-items:center;transform:scale(.96);transition:.22s cubic-bezier(.2,.8,.2,1);}
   .imgpop.open .imgpop-card{transform:scale(1);}
-  .imgpop-card img{width:100%;max-height:74vh;object-fit:contain;border-radius:18px;background:#fff;box-shadow:0 16px 50px -12px rgba(0,0,0,.6);}
+  .imgpop-card img{width:100%;max-height:74vh;object-fit:contain;border-radius:18px;background:#fff;box-shadow:0 16px 50px -12px rgba(0,0,0,.6);transition:opacity .15s ease;}
   .imgpop-cap{margin-top:14px;text-align:center;color:#fff;}
   #imgPopName{display:block;font-size:20px;font-weight:800;}
   #imgPopProd{display:block;font-size:14px;font-weight:600;opacity:.85;margin-top:3px;}
@@ -650,6 +650,7 @@ async function uploadItemImage(it,file){
   if(error){console.error(error);toast('失敗：'+(error.message||error.error||'バケット/ポリシー確認'));return false;}
   const {data}=SB.client.storage.from(IMG_BUCKET).getPublicUrl(path);
   it.image=data.publicUrl+'?v='+Date.now();      // 差し替えでも更新されるようキャッシュ避け
+  imgPreloaded.add(it.image); { const im=new Image(); im.src=it.image; }
   sbItemUpdate(it);
   return true;
 }
@@ -672,7 +673,7 @@ function sbLogInsert(batchId,label,when,entries){ if(!SB.ready())return; syncPul
 function sbLogDelete(bid){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').delete().eq('batch_id',bid).then(r=>{if(r.error)console.error(r.error);}); }
 
 async function loadZones(){ const {data,error}=await SB.client.from('zones').select('*').order('sort_order'); if(error){console.error(error);return;} if(data&&data.length){ const seen=new Set(),arr=[]; for(const r of data){ if(seen.has(r.code))continue; seen.add(r.code); arr.push({code:r.code,label:r.label,fam:r.color}); } ZONES=arr; if(!ZONES.some(z=>z.code==='その他'))ZONES.push({code:'その他',label:'その他',fam:'etc'}); recomputeZones(); } }
-async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden,got:r.got||0,picked_at:r.picked_at||null,isAlert:(!!r.is_alert||r.category==='アラート'),product:r.product||'',image:r.image_path||''})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } }
+async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden,got:r.got||0,picked_at:r.picked_at||null,isAlert:(!!r.is_alert||r.category==='アラート'),product:r.product||'',image:r.image_path||''})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } preloadImages(); }
 async function loadHistory(){ const {data,error}=await SB.client.from('purchase_log').select('*').order('archived_at',{ascending:false}); if(error){console.error(error);return;} const map=new Map(); for(const r of data){ if(!map.has(r.batch_id))map.set(r.batch_id,{bid:r.batch_id,date:r.label,list:[]}); map.get(r.batch_id).list.push({name:r.qty>1?`${r.name} ×${r.qty}`:r.name,zone:r.zone_code||null,itemId:r.item_id??null,picked:r.picked_at||null}); } history=[...map.values()]; }
 async function loadBookmarks(){ if(!SB.ready())return; const {data,error}=await SB.client.from('bookmarks').select('*').order('created_at',{ascending:false}); if(error){console.warn('bookmarks 読み込み不可（テーブル未作成かも）',error.message);return;} bookmarks=data.map(r=>({uid:Number(r.id),name:r.name||'',data:Array.isArray(r.data)?r.data:[],created_at:r.created_at})); }
 async function sbBookmarkInsert(name,data){ if(!SB.ready())return null; syncPulse(); const {data:d,error}=await SB.client.from('bookmarks').insert({name,data}).select().single(); if(error){console.error(error);return null;} return d.id; }
@@ -740,7 +741,7 @@ function subscribe(){
 async function init(){
   initDB();
   applyReverse(); applyRevPad(); applyBadgeAlpha();   // 保存済みのリバース設定・バッジ濃さを反映
-  loadLocal(); renderActive();                       // まずローカルで即表示
+  loadLocal(); renderActive(); preloadImages();      // まずローカルで即表示＋写真先読み
   if(SB.ready()){
     try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); }
     catch(e){ console.error(e); toast('同期エラー（コンソール参照）'); }
@@ -1033,7 +1034,20 @@ function dedupeItems(){
   });
 }
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1900);}
-function openImg(it){ if(!it||!it.image)return; $('#imgPopImg').src=it.image; $('#imgPopName').textContent=it.name||''; $('#imgPopProd').textContent=it.product||''; $('#imgPop').classList.add('open'); }
+const imgPreloaded=new Set();
+function preloadImages(){                                   // 一覧の写真をブラウザのキャッシュに先読み（開くとき一瞬で出る）
+  catalog.forEach(it=>{ if(it.image&&!imgPreloaded.has(it.image)){ imgPreloaded.add(it.image); const im=new Image(); im.src=it.image; } });
+}
+function openImg(it){ if(!it||!it.image)return;
+  const img=$('#imgPopImg');
+  img.style.opacity='0';                                   // 前の写真を隠す
+  img.onload=()=>{img.style.opacity='1';};
+  img.onerror=()=>{img.style.opacity='1';};
+  if(img.getAttribute('src')!==it.image) img.src=it.image;
+  if(img.complete) img.style.opacity='1';                  // キャッシュ済みなら即表示
+  $('#imgPopName').textContent=it.name||''; $('#imgPopProd').textContent=it.product||'';
+  $('#imgPop').classList.add('open');
+}
 function closeImg(){ $('#imgPop').classList.remove('open'); }
 $('#imgPop').addEventListener('click',closeImg);
 let hapticOn=(localStorage.getItem('kaimono.haptic')??'1')==='1';
