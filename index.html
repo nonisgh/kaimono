@@ -17,6 +17,7 @@
     --shadow:0 2px 0 #ece3cf, 0 8px 20px -10px rgba(80,70,40,.35);
     --radius:16px;
     --badge-a:.08;
+    --hdr:46px; --stick:150px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   body{-webkit-user-select:none;-moz-user-select:none;user-select:none;-webkit-touch-callout:none;}
@@ -188,6 +189,18 @@
   .srow-photo{flex:0 0 22%;min-width:60px;align-self:stretch;margin:-15px -15px -15px 0;display:grid;place-items:center;font-size:18px;background:rgba(0,0,0,calc(var(--badge-a) + .05));border-left:1px solid rgba(0,0,0,.10);}
   .srow-photo:active{filter:brightness(.93);}
   body.fs .srow-photo{margin:-18px -16px -18px 0;}
+  /* 検索＋目次バー（編集・品目） */
+  .findbar{position:sticky;top:var(--hdr,46px);z-index:38;background:var(--paper);padding:4px 0 8px;display:flex;flex-direction:column;gap:7px;}
+  .searchrow{display:flex;align-items:center;gap:7px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:0 11px;}
+  .searchrow .si{flex:none;font-size:14px;opacity:.6;}
+  .searchrow input{flex:1;min-width:0;border:none;background:transparent;font-family:inherit;font-size:15px;padding:10px 0;outline:none;color:var(--ink);}
+  .searchrow .clr{flex:none;border:none;background:transparent;font-size:15px;color:var(--ink-soft);cursor:pointer;padding:6px;}
+  .jumpbar{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .jumpbar::-webkit-scrollbar{display:none;}
+  .jchip{flex:none;border-radius:999px;padding:5px 12px;font-family:inherit;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;line-height:1;transition:.1s;}
+  .jchip:active{transform:scale(.93);}
+  .jchip.off{opacity:.32;}
+  .grp{scroll-margin-top:var(--stick,150px);}
   /* 品目行：写真ありの目印 */
   .hasimg{flex:none;font-size:12px;opacity:.6;margin:0 1px;}
 
@@ -349,6 +362,10 @@
       </div>
     </div>
     <div class="hint">タップで ＋1 ・ 左にスワイプで −1</div>
+    <div class="findbar">
+      <div class="searchrow"><span class="si">🔍</span><input id="editSearch" type="text" placeholder="さがす（品名・商品名）" enterkeyhint="search"><button class="clr" id="editSearchClr">✕</button></div>
+      <div class="jumpbar" id="editJump"></div>
+    </div>
     <div id="editArea"></div>
   </main>
 
@@ -363,6 +380,10 @@
         <button class="ghostbtn" id="dedupeBtn">🧹 重複</button>
         <button class="ghostbtn" id="renumBtn">番号振り直し</button>
       </div>
+    </div>
+    <div class="findbar">
+      <div class="searchrow"><span class="si">🔍</span><input id="itemSearch" type="text" placeholder="さがす（品名・商品名）" enterkeyhint="search"><button class="clr" id="itemSearchClr">✕</button></div>
+      <div class="jumpbar" id="itemJump"></div>
     </div>
     <div id="itemArea"></div>
   </main>
@@ -601,7 +622,7 @@ let catalog=RAW.map(([zone,name,type,qty],i)=>({uid:uidSeq++,id:i+1,name,type,zo
 let history=[{bid:0,date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌'},{name:'りんご ×2'}]}];
 let editingAlert=null,aZone='その他',aShow=true;   // アラート編集中の品目（catalog内）。aShow=リスト表示ON
 let bookmarks=[];                       // {uid,name,data:[{uid,name,qty}],created_at} リストの買うものプリセット
-let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editLock=false,editingNew=false,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false;
+let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editLock=false,editingNew=false,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false,editFilter='',itemFilter='';
 let itemSortables=[],zoneSortable=null,confirmCb=null,histSort='pick';
 let revMode=(localStorage.getItem('kaimono.rev')??'0')==='1';
 let revPad=parseFloat(localStorage.getItem('kaimono.revpad'))||24; // 表示位置(vh)・端末ごと（同期しない）
@@ -837,9 +858,11 @@ function renderEdit(){ saveLocal();
   $('#tripCount').textContent=catalog.filter(i=>i.qty>0).length;
   $('#editTotal').textContent=yen(taxIncl(tripTotal()));
   const showBadge=editSort!=='zone';
-  let html='';
-  for(const g of groupItems(sortItems(catalog.filter(i=>!i.hidden&&!i.isAlert),editSort),editSort)){
-    html+='<div class="grp">'+groupHeader(g);
+  let html='';const present=new Set();
+  const groups=groupItems(sortItems(catalog.filter(i=>!i.hidden&&!i.isAlert&&matchItem(i,editFilter)),editSort),editSort);
+  for(const g of groups){
+    if(g.kind==='zone')present.add(g.code);
+    html+='<div class="grp" data-zone="'+(g.kind==='zone'?esc(g.code):'')+'">'+groupHeader(g);
     for(const it of g.items){
       const hot=it.qty>=2;const f=zoneColorOf(zoneOf(it.zone));
       const st=it.qty>0?`style="background:${f.bg};border-left:5px solid ${f.ink};"`:'';
@@ -851,7 +874,10 @@ function renderEdit(){ saveLocal();
     }
     html+='</div>';
   }
+  if(!groups.length)html=`<div class="empty"><div class="e">🔍</div>${editFilter?'見つかりません':'品目がありません'}</div>`;
   $('#editArea').innerHTML=html;
+  renderJump('#editJump',present,editSort,editFilter);
+  layoutSticky();
 }
 
 /* ===== ITEM ===== */
@@ -867,17 +893,19 @@ function onItemDrop(){
 function initItemSortables(){
   itemSortables.forEach(s=>s.destroy());itemSortables=[];
   if(typeof Sortable==='undefined')return;
-  if(!(itemSort==='zone'||itemSort==='id'))return;
+  if(!(itemSort==='zone'||itemSort==='id')||itemFilter)return;
   document.querySelectorAll('#itemArea .itemsbox').forEach(box=>{
     itemSortables.push(Sortable.create(box,{group:'kaimono-items',handle:'.drag',animation:150,onEnd:onItemDrop}));
   });
 }
 function renderItems(){ saveLocal();
   $('#itemCount').textContent=catalog.filter(i=>!i.isAlert).length;
-  const draggable=(itemSort==='zone'||itemSort==='id');
-  let html='';
-  for(const g of groupItems(sortItems(catalog,itemSort),itemSort)){
-    html+='<div class="grp">'+groupHeader(g)+`<div class="itemsbox" data-zone="${g.kind==='zone'?esc(g.code):''}">`;
+  const draggable=(itemSort==='zone'||itemSort==='id')&&!itemFilter;
+  let html='';const present=new Set();
+  const groups=groupItems(sortItems(catalog.filter(i=>matchItem(i,itemFilter)),itemSort),itemSort);
+  for(const g of groups){
+    if(g.kind==='zone')present.add(g.code);
+    html+='<div class="grp" data-zone="'+(g.kind==='zone'?esc(g.code):'')+'">'+groupHeader(g)+`<div class="itemsbox" data-zone="${g.kind==='zone'?esc(g.code):''}">`;
     for(const it of g.items){
       if(it.isAlert){
         const tag=it.hidden?'<span class="hidetag">OFF</span>':(it.done?'<span class="hidetag">いま非表示</span>':'');
@@ -902,8 +930,11 @@ function renderItems(){ saveLocal();
     }
     html+='</div></div>';
   }
+  if(!groups.length)html=`<div class="empty"><div class="e">🔍</div>${itemFilter?'見つかりません':'品目がありません'}</div>`;
   $('#itemArea').innerHTML=html;
   initItemSortables();
+  renderJump('#itemJump',present,itemSort,itemFilter);
+  layoutSticky();
 }
 
 function renderHist(){ saveLocal();
@@ -934,6 +965,25 @@ function applyReverse(){
 }
 function scrollBottom(){ requestAnimationFrame(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})); }
 function renderActive(){if(activeTab==='list')renderList();else if(activeTab==='edit')renderEdit();else if(activeTab==='item')renderItems();else renderHist();saveLocal();}
+function matchItem(it,ft){ if(!ft)return true; return (it.name||'').toLowerCase().includes(ft)||(it.product||'').toLowerCase().includes(ft); }
+function renderJump(barSel,present,sortMode,ft){
+  const bar=$(barSel);if(!bar)return;
+  if(sortMode!=='zone'||ft){bar.style.display='none';bar.innerHTML='';return;}
+  bar.style.display='flex';
+  bar.innerHTML=ZONES.map(z=>{const c=zoneColorOf(z);const on=present.has(z.code);return `<button class="jchip ${on?'':'off'}" data-jz="${esc(z.code)}" style="background:${c.bg};color:${c.ink};border:1.5px solid ${c.ink}">${esc(z.code)}</button>`;}).join('');
+}
+function jumpToZone(areaSel,code){
+  const area=$(areaSel);if(!area)return;
+  const sel='.grp[data-zone="'+((window.CSS&&CSS.escape)?CSS.escape(code):code)+'"]';
+  const el=area.querySelector(sel); if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function layoutSticky(){
+  const hd=document.querySelector('header'); const h=hd?hd.offsetHeight:46;
+  document.documentElement.style.setProperty('--hdr',h+'px');
+  const fb=document.querySelector('main:not(.hidden) .findbar');
+  const fbh=(fb&&fb.offsetHeight)?fb.offsetHeight:0;
+  document.documentElement.style.setProperty('--stick',(h+fbh+10)+'px');
+}
 
 /* ===== 追加・編集 ===== */
 async function addFrom(inputSel,after){
@@ -1153,6 +1203,13 @@ async function closeZoneAdmin(){
 /* ===== events ===== */
 $('#addBtn').addEventListener('click',()=>{const v=$('#addInput').value;$('#addInput').value='';openNewEdit(v);});
 $('#addInput').addEventListener('keydown',e=>{if(e.key==='Enter'){const v=$('#addInput').value;$('#addInput').value='';openNewEdit(v);}});
+$('#editSearch').addEventListener('input',e=>{editFilter=e.target.value.trim().toLowerCase();renderEdit();});
+$('#editSearchClr').addEventListener('click',()=>{editFilter='';$('#editSearch').value='';renderEdit();});
+$('#itemSearch').addEventListener('input',e=>{itemFilter=e.target.value.trim().toLowerCase();renderItems();});
+$('#itemSearchClr').addEventListener('click',()=>{itemFilter='';$('#itemSearch').value='';renderItems();});
+$('#editJump').addEventListener('click',e=>{const b=e.target.closest('.jchip');if(b)jumpToZone('#editArea',b.dataset.jz);});
+$('#itemJump').addEventListener('click',e=>{const b=e.target.closest('.jchip');if(b)jumpToZone('#itemArea',b.dataset.jz);});
+window.addEventListener('resize',layoutSticky);
 $('#editAddBtn').addEventListener('click',()=>addFrom('#editAddInput',renderEdit));
 $('#editAddInput').addEventListener('keydown',e=>{if(e.key==='Enter')addFrom('#editAddInput',renderEdit);});
 $('#clearBtn').addEventListener('click',clearAll);
@@ -1172,6 +1229,7 @@ document.querySelector('.tabs').addEventListener('click',e=>{
   $('#histTab').classList.toggle('hidden',activeTab!=='hist');
   $('#footer').classList.toggle('hidden',activeTab!=='list');
   renderActive();
+  layoutSticky();
   if(activeTab==='list'&&revMode)scrollBottom();
 });
 
