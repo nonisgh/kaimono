@@ -356,7 +356,7 @@
   <h3>⚡ アラート</h3>
   <div class="field"><label>文言</label><input id="aText" type="text" placeholder="例：電子マネーをチャージ！" enterkeyhint="done"></div>
   <div class="field"><label>売り場（品目でドラッグして好きな位置に置けます）</label><div class="chips" id="aZoneChips"></div></div>
-  <div style="font-size:11px;color:var(--ink-soft);margin:-2px 2px 10px;line-height:1.5;">リストでは普通の品と同じ大きさの赤い行で出ます。タップすると消え、次の買い物でまた出ます。</div>
+  <div style="font-size:11px;color:var(--ink-soft);margin:-2px 2px 10px;line-height:1.5;">リストでは普通の品と同じ大きさの赤い行で出ます。タップすると消え、「記録」か「全部クリア」でまた出ます。すぐ戻したいときは、このアラートを保存すれば表示に復活します。</div>
   <div class="sheetbtns"><button class="b-del" id="aDel">削除</button><button class="b-save" id="aSave">保存</button></div>
 </div>
 
@@ -548,7 +548,7 @@ function sbLogInsert(batchId,label,when,entries){ if(!SB.ready())return; syncPul
 function sbLogDelete(bid){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').delete().eq('batch_id',bid).then(r=>{if(r.error)console.error(r.error);}); }
 
 async function loadZones(){ const {data,error}=await SB.client.from('zones').select('*').order('sort_order'); if(error){console.error(error);return;} if(data&&data.length){ const seen=new Set(),arr=[]; for(const r of data){ if(seen.has(r.code))continue; seen.add(r.code); arr.push({code:r.code,label:r.label,fam:r.color}); } ZONES=arr; if(!ZONES.some(z=>z.code==='その他'))ZONES.push({code:'その他',label:'その他',fam:'etc'}); recomputeZones(); } }
-async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden,got:r.got||0,picked_at:r.picked_at||null,isAlert:!!r.is_alert})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } }
+async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden,got:r.got||0,picked_at:r.picked_at||null,isAlert:(!!r.is_alert||r.category==='アラート')})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } }
 async function loadHistory(){ const {data,error}=await SB.client.from('purchase_log').select('*').order('archived_at',{ascending:false}); if(error){console.error(error);return;} const map=new Map(); for(const r of data){ if(!map.has(r.batch_id))map.set(r.batch_id,{bid:r.batch_id,date:r.label,list:[]}); map.get(r.batch_id).list.push({name:r.qty>1?`${r.name} ×${r.qty}`:r.name,zone:r.zone_code||null,itemId:r.item_id??null,picked:r.picked_at||null}); } history=[...map.values()]; }
 async function seedIfEmpty(){
   const z=await SB.client.from('zones').select('code',{count:'exact',head:true});
@@ -659,7 +659,7 @@ function renderList(){ saveLocal();
   $('#listTotal').textContent=yen(taxIncl(tripTotal()));
   $('#checkoutBtn').disabled=doneReal.length===0;
   $('#checkoutTxt').textContent=doneReal.length>0?`カゴの ${doneReal.length}こ を記録する`:'カゴに入れたものを記録';
-  const show=listSeg==='todo'?catalog.filter(i=>i.qty>0&&!i.done):catalog.filter(i=>i.qty>0&&i.done&&!i.isAlert);
+  const show=listSeg==='todo'?catalog.filter(i=>i.isAlert?!i.done:(i.qty>0&&!i.done)):catalog.filter(i=>i.qty>0&&i.done&&!i.isAlert);
   const area=$('#listArea');
   if(show.length===0){area.innerHTML=`<div class="empty"><div class="e">${listSeg==='todo'?'🛒':'✅'}</div>${listSeg==='todo'?'のこりは ありません<br>「編集」で こすうを つけてね':'まだ カゴに 入れた品は ないよ'}</div>`;$('#restoreWrap').innerHTML='';return;}
   const showBadge=listSort!=='zone';
@@ -748,10 +748,11 @@ function renderItems(){ saveLocal();
     html+='<div class="grp">'+groupHeader(g)+`<div class="itemsbox" data-zone="${g.kind==='zone'?esc(g.code):''}">`;
     for(const it of g.items){
       if(it.isAlert){
-        html+=`<div class="irow alert" data-uid="${it.uid}" data-alert="1">
+        html+=`<div class="irow alert ${it.done?'dim':''}" data-uid="${it.uid}" data-alert="1">
           ${draggable?'<span class="drag">≡</span>':''}
           <span class="aico">⚡</span>
           <span class="nm">${esc(it.name||'(文言なし)')}</span>
+          ${it.done?'<span class="hidetag">いま非表示</span>':''}
           ${bdg(it.zone,'bdg')}<span class="type">アラート</span></div>`;
         continue;
       }
@@ -1140,7 +1141,7 @@ $('#aSave').addEventListener('click',async()=>{
   const text=$('#aText').value.trim();
   if(!text){toast('文言を入れてね');return;}
   if(editingAlert){
-    editingAlert.name=text;editingAlert.zone=aZone;
+    editingAlert.name=text;editingAlert.zone=aZone;editingAlert.done=false;editingAlert.got=0;  // 保存でリスト表示に復活
     sbItemUpdate(editingAlert);
   }else{
     const maxId=catalog.reduce((a,b)=>Math.max(a,b.id),0);
