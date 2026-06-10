@@ -129,6 +129,14 @@
   .irow .idn{font-size:11px;font-weight:900;color:var(--ink-soft);background:var(--paper2);border-radius:6px;padding:2px 6px;flex:none;min-width:26px;text-align:center;}
   .irow .bdg{font-size:10px;font-weight:900;padding:2px 6px;border-radius:6px;flex:none;}
   .irow .nm{min-width:0;font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .icore{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+  .irow>.idn{align-self:flex-start;margin-top:2px;}
+  .icore .iline1{display:flex;align-items:center;gap:6px;min-width:0;}
+  .icore .iline1 .nm{flex:1;}
+  .icore .prod{margin-top:0;}
+  .icore .imeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .icore .imeta .price{margin-left:auto;}
+  .irow.alert .nm{flex:1;}
   .irow .type{font-size:11px;color:var(--ink-soft);flex:none;}
   .irow .price{font-size:12px;font-weight:700;color:var(--green-d);flex:none;min-width:46px;text-align:right;}
 
@@ -882,13 +890,13 @@ function renderItems(){ saveLocal();
       const f=zoneColorOf(zoneOf(it.zone));
       html+=`<div class="irow ${it.hidden?'dim':''}" data-uid="${it.uid}">
         ${draggable?'<span class="drag">≡</span>':''}
-        <span class="idn" style="background:${f.bg};color:${f.ink}">${it.id}</span>${bdg(it.zone,'bdg')}
-        <button class="starbtn ${it.keep?'on':''}" data-act="keep">${it.keep?'★':'☆'}</button>
-        <div class="namecell"><span class="nm">${esc(it.name)}</span>${it.product?`<span class="prod">${esc(it.product)}</span>`:''}</div>
-        ${it.image?'<span class="hasimg">📷</span>':''}
-        ${it.hidden?'<span class="hidetag">非表示</span>':''}
-        <span class="type">${esc(it.type)}</span>
-        <span class="price">${it.price>0?yen(taxIncl(it.price)):'¥—'}</span></div>`;
+        <span class="idn" style="background:${f.bg};color:${f.ink}">${it.id}</span>
+        <div class="icore">
+          <div class="iline1"><span class="nm">${esc(it.name)}</span>${it.image?'<span class="hasimg">📷</span>':''}${it.hidden?'<span class="hidetag">非表示</span>':''}</div>
+          ${it.product?`<div class="prod">${esc(it.product)}</div>`:''}
+          <div class="imeta">${bdg(it.zone,'bdg')}<span class="type">${esc(it.type)}</span><span class="price">${it.price>0?yen(taxIncl(it.price)):'¥—'}</span></div>
+        </div>
+        <button class="starbtn ${it.keep?'on':''}" data-act="keep">${it.keep?'★':'☆'}</button></div>`;
     }
     html+='</div></div>';
   }
