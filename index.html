@@ -195,8 +195,12 @@
   .searchrow .si{flex:none;font-size:14px;opacity:.6;}
   .searchrow input{flex:1;min-width:0;border:none;background:transparent;font-family:inherit;font-size:15px;padding:10px 0;outline:none;color:var(--ink);}
   .searchrow .clr{flex:none;border:none;background:transparent;font-size:15px;color:var(--ink-soft);cursor:pointer;padding:6px;}
-  .jumpbar{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+  .jumprow{display:flex;align-items:center;gap:6px;}
+  .jumpbar{flex:1;min-width:0;display:flex;gap:6px;overflow-x:auto;padding:2px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-behavior:smooth;}
   .jumpbar::-webkit-scrollbar{display:none;}
+  .jnav{flex:none;width:34px;height:30px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);font-family:inherit;font-weight:800;font-size:13px;color:var(--green-d);cursor:pointer;line-height:1;}
+  .jnav:active{transform:scale(.92);background:#ece4d2;}
+  .jchip.cur{outline:2.5px solid var(--green-d);outline-offset:1px;}
   .jchip{flex:none;border-radius:999px;padding:5px 12px;font-family:inherit;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;line-height:1;transition:.1s;}
   .jchip:active{transform:scale(.93);}
   .jchip.off{opacity:.32;}
@@ -364,7 +368,7 @@
     <div class="hint">タップで ＋1 ・ 左にスワイプで −1</div>
     <div class="findbar">
       <div class="searchrow"><span class="si">🔍</span><input id="editSearch" type="text" placeholder="さがす（品名・商品名）" enterkeyhint="search"><button class="clr" id="editSearchClr">✕</button></div>
-      <div class="jumpbar" id="editJump"></div>
+      <div class="jumprow"><button class="jnav" data-jn="-1" data-jt="edit">◀</button><div class="jumpbar" id="editJump"></div><button class="jnav" data-jn="1" data-jt="edit">▶</button></div>
     </div>
     <div id="editArea"></div>
   </main>
@@ -383,7 +387,7 @@
     </div>
     <div class="findbar">
       <div class="searchrow"><span class="si">🔍</span><input id="itemSearch" type="text" placeholder="さがす（品名・商品名）" enterkeyhint="search"><button class="clr" id="itemSearchClr">✕</button></div>
-      <div class="jumpbar" id="itemJump"></div>
+      <div class="jumprow"><button class="jnav" data-jn="-1" data-jt="item">◀</button><div class="jumpbar" id="itemJump"></div><button class="jnav" data-jn="1" data-jt="item">▶</button></div>
     </div>
     <div id="itemArea"></div>
   </main>
@@ -968,9 +972,11 @@ function renderActive(){if(activeTab==='list')renderList();else if(activeTab==='
 function matchItem(it,ft){ if(!ft)return true; return (it.name||'').toLowerCase().includes(ft)||(it.product||'').toLowerCase().includes(ft); }
 function renderJump(barSel,present,sortMode,ft){
   const bar=$(barSel);if(!bar)return;
-  if(sortMode!=='zone'||ft){bar.style.display='none';bar.innerHTML='';return;}
-  bar.style.display='flex';
+  const row=bar.closest('.jumprow')||bar;
+  if(sortMode!=='zone'||ft){row.style.display='none';bar.innerHTML='';return;}
+  row.style.display='flex';bar.style.display='flex';
   bar.innerHTML=ZONES.map(z=>{const c=zoneColorOf(z);const on=present.has(z.code);return `<button class="jchip ${on?'':'off'}" data-jz="${esc(z.code)}" style="background:${c.bg};color:${c.ink};border:1.5px solid ${c.ink}">${esc(z.code)}</button>`;}).join('');
+  requestAnimationFrame(updateJumpCur);
 }
 function jumpToZone(areaSel,code){
   const area=$(areaSel);if(!area)return;
@@ -983,6 +989,38 @@ function layoutSticky(){
   const fb=document.querySelector('main:not(.hidden) .findbar');
   const fbh=(fb&&fb.offsetHeight)?fb.offsetHeight:0;
   document.documentElement.style.setProperty('--stick',(h+fbh+10)+'px');
+}
+function curArea(){ return activeTab==='edit'?{area:'#editArea',bar:'#editJump',sort:editSort,ft:editFilter}:activeTab==='item'?{area:'#itemArea',bar:'#itemJump',sort:itemSort,ft:itemFilter}:null; }
+function currentZone(){                                       // 画面上部に今見えている売り場
+  const c=curArea(); if(!c||c.sort!=='zone'||c.ft)return null;
+  const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150;
+  const grps=document.querySelectorAll(c.area+' .grp[data-zone]');
+  let cur=null;
+  for(const g of grps){ const r=g.getBoundingClientRect(); if(r.top<=stick+8)cur=g.dataset.zone; else break; }
+  if(!cur&&grps.length)cur=grps[0].dataset.zone;
+  return cur;
+}
+let _jzTick=null;
+function updateJumpCur(){                                     // 現在地チップを光らせて中央へスライド
+  const c=curArea(); if(!c)return;
+  const code=currentZone(); const bar=$(c.bar); if(!bar)return;
+  bar.querySelectorAll('.jchip').forEach(ch=>{
+    const on=ch.dataset.jz===code;
+    ch.classList.toggle('cur',on);
+    if(on){ const bl=bar.getBoundingClientRect(),cl=ch.getBoundingClientRect();
+      bar.scrollLeft+=cl.left-bl.left-(bl.width-cl.width)/2; }
+  });
+}
+window.addEventListener('scroll',()=>{ if(_jzTick)return; _jzTick=requestAnimationFrame(()=>{_jzTick=null;updateJumpCur();}); },{passive:true});
+function jumpStep(dir){                                       // ◀▶で前後の売り場へ
+  const c=curArea(); if(!c||c.sort!=='zone'||c.ft)return;
+  const grps=[...document.querySelectorAll(c.area+' .grp[data-zone]')].filter(g=>g.dataset.zone);
+  if(!grps.length)return;
+  const codes=grps.map(g=>g.dataset.zone);
+  const cur=currentZone();
+  let idx=codes.indexOf(cur); if(idx<0)idx=0; else idx+=dir;
+  idx=Math.max(0,Math.min(codes.length-1,idx));
+  jumpToZone(c.area,codes[idx]);
 }
 
 /* ===== 追加・編集 ===== */
@@ -1209,6 +1247,7 @@ $('#itemSearch').addEventListener('input',e=>{itemFilter=e.target.value.trim().t
 $('#itemSearchClr').addEventListener('click',()=>{itemFilter='';$('#itemSearch').value='';renderItems();});
 $('#editJump').addEventListener('click',e=>{const b=e.target.closest('.jchip');if(b)jumpToZone('#editArea',b.dataset.jz);});
 $('#itemJump').addEventListener('click',e=>{const b=e.target.closest('.jchip');if(b)jumpToZone('#itemArea',b.dataset.jz);});
+document.querySelectorAll('.jnav').forEach(b=>b.addEventListener('click',()=>jumpStep(parseInt(b.dataset.jn,10))));
 window.addEventListener('resize',layoutSticky);
 $('#editAddBtn').addEventListener('click',()=>addFrom('#editAddInput',renderEdit));
 $('#editAddInput').addEventListener('keydown',e=>{if(e.key==='Enter')addFrom('#editAddInput',renderEdit);});
