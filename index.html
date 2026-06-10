@@ -1420,7 +1420,7 @@ $('#copyBtn').addEventListener('click',async()=>{
   if(name===editing.name) name=name+' コピー';     // 名前未変更ならコピーと分かるように
   const pv=parseInt($('#fPrice').value);const price=isNaN(pv)?0:Math.max(0,pv);
   const maxId=catalog.reduce((a,b)=>Math.max(a,b.id),0);
-  const copy={uid:null,id:maxId+1,name,type:editType,zone:editZone,price,qty:editing.qty||0,done:false,keep:editKeep,keepQty:editKeep?Math.max(editQty,1):0,hidden:editHidden,got:0,picked_at:null,product:$('#fProduct').value.trim()};
+  const copy={uid:null,id:maxId+1,name,type:editType,zone:editZone,price,qty:0,done:false,keep:editKeep,keepQty:editKeep?Math.max(editQty,1):0,hidden:editHidden,got:0,picked_at:null,product:$('#fProduct').value.trim(),image:''};
   if(SB.ready()){ const id=await sbItemInsert(copy); if(id==null){toast('コピーに失敗しました');return;} copy.uid=id; }
   else { copy.uid=uidSeq++; }
   catalog.push(copy);
