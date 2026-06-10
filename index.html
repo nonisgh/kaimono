@@ -62,6 +62,8 @@
   .seg2{display:flex;background:var(--paper2);border:1.5px solid var(--line);border-radius:999px;padding:3px;gap:2px;margin:10px 0 2px;}
   .seg2 button{flex:1;border:0;background:transparent;font-family:inherit;font-weight:700;font-size:13px;color:var(--ink-soft);padding:8px 0;border-radius:999px;cursor:pointer;transition:.15s;}
   .seg2 button.on{background:var(--green);color:#fff;box-shadow:0 2px 0 var(--green-d);}
+  .restoreall{width:100%;border:1.5px solid var(--line);background:var(--paper2);color:var(--ink-soft);font-family:inherit;font-weight:800;font-size:13px;padding:11px;border-radius:13px;cursor:pointer;margin:10px 0 2px;transition:.12s;}
+  .restoreall:active{transform:scale(.99);background:#ece4d2;}
 
   .addbar{display:flex;gap:8px;margin:12px 0;}
   .addbar input{flex:1;min-width:0;font-family:inherit;font-size:16px;font-weight:500;border:2px solid var(--line);background:var(--card);border-radius:13px;padding:12px 14px;color:var(--ink);outline:none;transition:.15s;}
@@ -250,7 +252,8 @@
         <button class="ghostbtn" id="fsEnter">⛶ 全画面</button>
       </div>
     </div>
-    <div class="seg2" id="listSeg"><button class="on" data-seg="todo">未終了</button><button data-seg="done">終了</button></div>
+    <div class="seg2" id="listSeg"><button class="on" data-seg="todo">のこり</button><button data-seg="done">カゴの中</button></div>
+    <div id="restoreWrap"></div>
     <div id="listArea"></div>
     <div id="revBar">
       <button class="revbtn2 mini" id="revUp" title="表示位置を上げる">⬆</button>
@@ -630,7 +633,7 @@ function renderList(){ saveLocal();
   $('#checkoutTxt').textContent=done.length>0?`カゴの ${done.length}こ を記録する`:'カゴに入れたものを記録';
   const show=listSeg==='todo'?todo:done;
   const area=$('#listArea');
-  if(show.length===0){area.innerHTML=`<div class="empty"><div class="e">${listSeg==='todo'?'🛒':'✅'}</div>${listSeg==='todo'?'未終了は ありません<br>「編集」で こすうを つけてね':'まだ 完了した品は ないよ'}</div>`;return;}
+  if(show.length===0){area.innerHTML=`<div class="empty"><div class="e">${listSeg==='todo'?'🛒':'✅'}</div>${listSeg==='todo'?'のこりは ありません<br>「編集」で こすうを つけてね':'まだ カゴに 入れた品は ないよ'}</div>`;$('#restoreWrap').innerHTML='';return;}
   const showBadge=listSort!=='zone';
   let html='';
   let groups=groupItems(sortItems(show,listSort),listSort);
@@ -654,6 +657,7 @@ function renderList(){ saveLocal();
     html+='</div>';
   }
   area.innerHTML=html;
+  $('#restoreWrap').innerHTML=(listSeg==='done'&&show.length>0)?'<button id="restoreAllBtn" class="restoreall">↩︎ ぜんぶ のこりに もどす</button>':'';
 }
 function updateListChrome(){                       // 行は触らずヘッダーの数字だけ更新（全再描画しない）
   const trip=catalog.filter(i=>i.qty>0);
@@ -958,6 +962,17 @@ document.querySelector('.tabs').addEventListener('click',e=>{
 });
 
 $('#listSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;listSeg=b.dataset.seg;[...$('#listSeg').children].forEach(x=>x.classList.toggle('on',x===b));renderList();});
+$('#restoreWrap').addEventListener('click',e=>{if(e.target.closest('#restoreAllBtn'))restoreAllDone();});
+function restoreAllDone(){
+  const done=catalog.filter(i=>i.qty>0&&i.done);
+  if(!done.length)return;
+  done.forEach(it=>{it.done=false;it.got=0;it.picked_at=null;});
+  sbBulkSet(done.map(it=>({id:it.uid,done:false,got:0,picked_at:null})));
+  haptic('done');
+  listSeg='todo';[...$('#listSeg').children].forEach(x=>x.classList.toggle('on',x.dataset.seg==='todo'));
+  renderList();if(revMode)scrollBottom();
+  toast(`${done.length}こ を のこりに もどしました`);
+}
 $('#listSort').addEventListener('change',e=>{listSort=e.target.value;renderList();});
 $('#editSort').addEventListener('change',e=>{editSort=e.target.value;renderEdit();});
 $('#itemSort').addEventListener('change',e=>{itemSort=e.target.value;renderItems();});
