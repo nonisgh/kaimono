@@ -141,7 +141,7 @@
   .irow .price{font-size:12px;font-weight:700;color:var(--green-d);flex:none;min-width:46px;text-align:right;}
 
   /* shop / list row */
-  .srow{display:flex;align-items:center;gap:13px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:15px 15px;margin-bottom:9px;box-shadow:var(--shadow);transition:.16s;touch-action:pan-y;}
+  .srow{display:flex;align-items:center;gap:13px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:15px 15px;margin-bottom:9px;box-shadow:var(--shadow);transition:.16s;touch-action:pan-y;overflow:hidden;}
   .srow:active{transform:scale(.99);}
   .srow.hot{border-color:#e6b8c2;background:#fff;}
   .check{width:32px;height:32px;border-radius:9px;border:2.5px solid var(--line);flex:none;display:grid;place-items:center;cursor:pointer;transition:.15s;background:var(--paper);}
@@ -184,9 +184,10 @@
   /* 編集行の画像ありアイコン（タップで表示） */
   .imgico{flex:none;width:26px;height:26px;border-radius:8px;border:1.5px solid rgba(0,0,0,.10);background:rgba(0,0,0,var(--badge-a));display:grid;place-items:center;font-size:13px;cursor:pointer;color:var(--green-d);line-height:1;}
   .imgico:active{transform:scale(.92);filter:brightness(.92);}
-  /* リスト行の写真バッジ（小さめ・色背景になじむ・右スワイプでも表示） */
-  .srow-img{flex:none;align-self:center;width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:12px;background:rgba(0,0,0,var(--badge-a));margin-left:6px;line-height:1;}
-  .srow-img:active{transform:scale(.9);}
+  /* リスト行の写真ゾーン（右側・少し濃いめ・タップで表示） */
+  .srow-photo{flex:0 0 22%;min-width:60px;align-self:stretch;margin:-15px -15px -15px 0;display:grid;place-items:center;font-size:18px;background:rgba(0,0,0,calc(var(--badge-a) + .05));border-left:1px solid rgba(0,0,0,.10);}
+  .srow-photo:active{filter:brightness(.93);}
+  body.fs .srow-photo{margin:-18px -16px -18px 0;}
   /* 品目行：写真ありの目印 */
   .hasimg{flex:none;font-size:12px;opacity:.6;margin:0 1px;}
 
@@ -809,7 +810,7 @@ function renderList(){ saveLocal();
       else if(it.done&&multi){ qhtml=`<div class="bigq donef"><span class="num">${it.qty}こ</span></div>`; }
       html+=`<div class="srow ${it.done?'done':''} ${hot?'hot':''}" data-uid="${it.uid}" style="background:${f.bg};border-left:5px solid ${f.ink};">
         <div class="body"><span class="nm">${esc(it.name)}</span>${it.product?`<div class="prod">${esc(it.product)}</div>`:''}${qhtml}</div>
-        ${it.image?`<span class="srow-img">📷</span>`:''}${showBadge?bdg(it.zone,'bdg'):''}</div>`;
+        ${showBadge?bdg(it.zone,'bdg'):''}${it.image?'<div class="srow-photo">📷</div>':''}</div>`;
     }
     if(revMode) html+=groupHeader(g);
     html+='</div>';
@@ -1216,7 +1217,7 @@ $('#itemArea').addEventListener('click',e=>{
   }
   openEdit(it);
 });
-$('#listArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.srow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;_simg=!!e.target.closest('.srow-img');startLongPress(_su);});
+$('#listArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.srow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;_simg=!!e.target.closest('.srow-photo');startLongPress(_su);});
 $('#listArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10||Math.abs(e.clientY-_sy)>10)cancelLongPress();},{passive:true});
 $('#listArea').addEventListener('pointercancel',()=>{_su=null;cancelLongPress();});
 $('#listArea').addEventListener('pointerup',e=>{
@@ -1332,7 +1333,7 @@ function renderBookmarks(){
 async function saveBookmark(){
   let name=$('#bmName').value.trim();
   if(!name){ const d=new Date(),p=n=>String(n).padStart(2,'0'); name=`${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
-  const data=catalog.filter(i=>!i.isAlert&&i.qty>0).map(i=>({uid:i.uid,name:i.name,qty:i.qty}));
+  const data=catalog.filter(i=>!i.isAlert&&i.qty>0).map(i=>({uid:i.uid,name:i.name,product:i.product||'',qty:i.qty}));
   if(!data.length){toast('「買うもの」が空だよ（編集で個数をつけてね）');return;}
   let uid;
   if(SB.ready()){ uid=await sbBookmarkInsert(name,data); if(uid==null){toast('保存に失敗しました');return;} }
@@ -1343,12 +1344,13 @@ async function saveBookmark(){
 function loadBookmark(uid){
   const b=bookmarks.find(x=>x.uid===uid); if(!b)return;
   askConfirm('ブックマークを読み込む',`今の「買うもの」をクリアして「${b.name}」に入れ替えます`,()=>{
-    const byUid=new Map(), byName=new Map();
-    (b.data||[]).forEach(x=>{ if(x.uid!=null)byUid.set(Number(x.uid),x.qty); if(x.name)byName.set(x.name,x.qty); });
+    const byUid=new Map(), byKey=new Map();
+    const keyOf=x=>(x.name||'')+'\u0000'+(x.product||'');     // 品名＋商品名で区別
+    (b.data||[]).forEach(x=>{ if(x.uid!=null)byUid.set(Number(x.uid),x.qty); byKey.set(keyOf(x),x.qty); });
     const rows=[];
     catalog.forEach(i=>{
       if(i.isAlert){ if(i.done||i.got){ i.done=false;i.got=0; rows.push({id:i.uid,done:false,got:0}); } return; }
-      const q=byUid.has(i.uid)?byUid.get(i.uid):(byName.has(i.name)?byName.get(i.name):0);
+      const q=byUid.has(i.uid)?byUid.get(i.uid):(byKey.has(keyOf(i))?byKey.get(keyOf(i)):0);
       if(i.qty!==q||i.done||i.got||i.picked_at){ i.qty=q;i.done=false;i.got=0;i.picked_at=null; rows.push({id:i.uid,qty:q,done:false,got:0,picked_at:null}); }
     });
     sbBulkSet(rows);
