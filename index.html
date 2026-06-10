@@ -13,7 +13,7 @@
     --paper:#fbf6ec; --paper2:#f3ecdc; --card:#fffdf8;
     --ink:#3a352b; --ink-soft:#8a8472; --line:#e7ddc7;
     --green:#5b8a4f; --green-d:#456b3c; --green-soft:#e6efe0; --coral:#e0764f;
-    --hot:#d23f22; --hot-soft:#fae0d8;
+    --hot:#c83c4a; --hot-soft:#f8dce1;
     --shadow:0 2px 0 #ece3cf, 0 8px 20px -10px rgba(80,70,40,.35);
     --radius:16px;
   }
@@ -81,7 +81,7 @@
   .erow{display:flex;align-items:center;gap:12px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:17px 16px;margin-bottom:9px;box-shadow:var(--shadow);touch-action:pan-y;cursor:pointer;transition:.1s;}
   .erow:active{transform:scale(.99);}
   .erow.has{border-color:#cfe0c4;background:#fff;}
-  .erow.hot{border-color:#eebfb2;}
+  .erow.hot{border-color:#e6b8c2;}
   .erow .bdg{font-size:11px;font-weight:900;padding:3px 7px;border-radius:7px;flex:none;}
   .erow .nm{flex:1;min-width:0;font-size:20px;font-weight:700;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .erow.has .nm{color:var(--ink);} .erow.hot .nm{color:var(--hot);}
@@ -110,7 +110,7 @@
   /* shop / list row */
   .srow{display:flex;align-items:center;gap:13px;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:15px 15px;margin-bottom:9px;box-shadow:var(--shadow);transition:.16s;touch-action:pan-y;}
   .srow:active{transform:scale(.99);}
-  .srow.hot{border-color:#eebfb2;background:#fff;}
+  .srow.hot{border-color:#e6b8c2;background:#fff;}
   .check{width:32px;height:32px;border-radius:9px;border:2.5px solid var(--line);flex:none;display:grid;place-items:center;cursor:pointer;transition:.15s;background:var(--paper);}
   .check svg{width:19px;height:19px;opacity:0;transform:scale(.4);transition:.18s;}
   .srow .body{flex:1;min-width:0;}
@@ -139,7 +139,7 @@
 
   .daygroup{margin-top:16px;}
   .dayhead{font-size:14px;font-weight:900;color:var(--green-d);margin:0 2px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
-  .histdel{border:1.5px solid #eebfb2;background:#fff;color:var(--hot);font-family:inherit;font-weight:800;font-size:11px;padding:5px 10px;border-radius:999px;cursor:pointer;}
+  .histdel{border:1.5px solid #e6b8c2;background:#fff;color:var(--hot);font-family:inherit;font-weight:800;font-size:11px;padding:5px 10px;border-radius:999px;cursor:pointer;}
   .hitem{display:flex;align-items:center;gap:10px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:10px 13px;margin-bottom:6px;}
   .hitem .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:none;}
   .hitem .hn{font-size:15px;font-weight:500;flex:1;}
@@ -273,7 +273,7 @@
       <div class="count">今回 <b id="tripCount">0</b> 品 ・ 合計(税込) <span class="yen" id="editTotal">¥0</span></div>
       <div style="display:flex;gap:6px;">
         <select class="sortsel" id="editSort"></select>
-        <button class="ghostbtn" id="clearBtn" style="color:var(--hot);border-color:#eebfb2;">全部クリア</button>
+        <button class="ghostbtn" id="clearBtn" style="color:var(--hot);border-color:#e6b8c2;">全部クリア</button>
       </div>
     </div>
     <div class="hint">タップで ＋1 ・ 左にスワイプで −1</div>
