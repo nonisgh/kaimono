@@ -356,7 +356,8 @@
   <h3>⚡ アラート</h3>
   <div class="field"><label>文言</label><input id="aText" type="text" placeholder="例：電子マネーをチャージ！" enterkeyhint="done"></div>
   <div class="field"><label>売り場（品目でドラッグして好きな位置に置けます）</label><div class="chips" id="aZoneChips"></div></div>
-  <div style="font-size:11px;color:var(--ink-soft);margin:-2px 2px 10px;line-height:1.5;">リストでは普通の品と同じ大きさの赤い行で出ます。タップすると消え、「記録」か「全部クリア」でまた出ます。すぐ戻したいときは、このアラートを保存すれば表示に復活します。</div>
+  <div class="field"><label>リストに表示</label><button id="aShow" class="keepbtn">表示する</button></div>
+  <div style="font-size:11px;color:var(--ink-soft);margin:-2px 2px 10px;line-height:1.5;">リストでは普通の品と同じ大きさの赤い行で出ます。タップすると消え、「記録」か「全部クリア」でまた出ます。買うものが1つも無いときは出ません。OFFにすると品目には残ったままリストに出なくなります。</div>
   <div class="sheetbtns"><button class="b-del" id="aDel">削除</button><button class="b-save" id="aSave">保存</button></div>
 </div>
 
@@ -510,7 +511,7 @@ let uidSeq=1;
 let catalog=RAW.map(([zone,name,type,qty],i)=>({uid:uidSeq++,id:i+1,name,type,zone,price:0,qty,done:false,keep:false,keepQty:0}));
 
 let history=[{bid:0,date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌'},{name:'りんご ×2'}]}];
-let editingAlert=null,aZone='その他';   // アラート編集中の品目（catalog内）
+let editingAlert=null,aZone='その他',aShow=true;   // アラート編集中の品目（catalog内）。aShow=リスト表示ON
 let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editLock=false,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false;
 let itemSortables=[],zoneSortable=null,confirmCb=null,histSort='pick';
 let revMode=(localStorage.getItem('kaimono.rev')??'0')==='1';
@@ -659,7 +660,8 @@ function renderList(){ saveLocal();
   $('#listTotal').textContent=yen(taxIncl(tripTotal()));
   $('#checkoutBtn').disabled=doneReal.length===0;
   $('#checkoutTxt').textContent=doneReal.length>0?`カゴの ${doneReal.length}こ を記録する`:'カゴに入れたものを記録';
-  const show=listSeg==='todo'?catalog.filter(i=>i.isAlert?!i.done:(i.qty>0&&!i.done)):catalog.filter(i=>i.qty>0&&i.done&&!i.isAlert);
+  const hasReal=catalog.some(i=>!i.isAlert&&i.qty>0&&!i.done);   // 買うもの(実品目)が残っているか
+  const show=listSeg==='todo'?catalog.filter(i=>i.isAlert?(!i.done&&!i.hidden&&hasReal):(i.qty>0&&!i.done)):catalog.filter(i=>i.qty>0&&i.done&&!i.isAlert);
   const area=$('#listArea');
   if(show.length===0){area.innerHTML=`<div class="empty"><div class="e">${listSeg==='todo'?'🛒':'✅'}</div>${listSeg==='todo'?'のこりは ありません<br>「編集」で こすうを つけてね':'まだ カゴに 入れた品は ないよ'}</div>`;$('#restoreWrap').innerHTML='';return;}
   const showBadge=listSort!=='zone';
@@ -748,11 +750,12 @@ function renderItems(){ saveLocal();
     html+='<div class="grp">'+groupHeader(g)+`<div class="itemsbox" data-zone="${g.kind==='zone'?esc(g.code):''}">`;
     for(const it of g.items){
       if(it.isAlert){
-        html+=`<div class="irow alert ${it.done?'dim':''}" data-uid="${it.uid}" data-alert="1">
+        const tag=it.hidden?'<span class="hidetag">OFF</span>':(it.done?'<span class="hidetag">いま非表示</span>':'');
+        html+=`<div class="irow alert ${it.hidden||it.done?'dim':''}" data-uid="${it.uid}" data-alert="1">
           ${draggable?'<span class="drag">≡</span>':''}
           <span class="aico">⚡</span>
           <span class="nm">${esc(it.name||'(文言なし)')}</span>
-          ${it.done?'<span class="hidetag">いま非表示</span>':''}
+          ${tag}
           ${bdg(it.zone,'bdg')}<span class="type">アラート</span></div>`;
         continue;
       }
@@ -1084,7 +1087,7 @@ $('#listArea').addEventListener('pointerup',e=>{
     if(row)row.classList.add('poof');
     setTimeout(()=>{
       dropListRow(row);updateListChrome();saveLocal();
-      if(catalog.filter(i=>i.qty>0&&!i.done).length===0)renderList(); // 未終了が空になったら空表示へ
+      if(catalog.filter(i=>!i.isAlert&&i.qty>0&&!i.done).length===0)renderList(); // 買うものが無くなったら空表示へ（アラートも消える）
       if(revMode)scrollBottom();
     },140);
   } else {
@@ -1124,16 +1127,19 @@ $('#zoneChips').addEventListener('click',e=>{const b=e.target.closest('.chip');i
 
 /* ===== アラート（赤い注意ラベル＝特別な品目） ===== */
 function renderAZoneChips(){$('#aZoneChips').innerHTML=ZONES.map(z=>{const f=zoneColorOf(z);const on=z.code===aZone;const st=on?`background:${f.ink};border-color:${f.ink};color:#fff;`:`background:${f.bg};border-color:${f.ink};color:${f.ink};`;return `<button class="chip ${on?'on':''}" data-zone="${esc(z.code)}" style="${st}">${esc(z.code)} ${esc(z.label)}</button>`;}).join('');}
+function renderAShow(){const b=$('#aShow');b.classList.toggle('on',aShow);b.textContent=aShow?'★ 表示する':'表示しない';}
 function openAlertEdit(a){
   editingAlert=a||null;
   aZone=a?a.zone:((ZONES[0]&&ZONES[0].code)||'その他');
+  aShow=a?!a.hidden:true;
   $('#aText').value=a?a.name:'';
   $('#aDel').style.display=a?'':'none';
-  renderAZoneChips();
+  renderAZoneChips();renderAShow();
   $('#alertBg').classList.add('open');$('#alertSheet').classList.add('open');
 }
 function closeAlertEdit(){$('#alertBg').classList.remove('open');$('#alertSheet').classList.remove('open');editingAlert=null;}
 $('#aZoneChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;aZone=b.dataset.zone;renderAZoneChips();});
+$('#aShow').addEventListener('click',()=>{aShow=!aShow;renderAShow();});
 $('#alertBg').addEventListener('click',closeAlertEdit);
 $('#addAlertBtn').addEventListener('click',()=>openAlertEdit(null));
 $('#aDel').addEventListener('click',()=>{if(!editingAlert)return;const uid=editingAlert.uid;catalog=catalog.filter(i=>i.uid!==uid);sbItemDelete(uid);closeAlertEdit();renderActive();toast('アラートを削除しました');});
@@ -1141,11 +1147,11 @@ $('#aSave').addEventListener('click',async()=>{
   const text=$('#aText').value.trim();
   if(!text){toast('文言を入れてね');return;}
   if(editingAlert){
-    editingAlert.name=text;editingAlert.zone=aZone;editingAlert.done=false;editingAlert.got=0;  // 保存でリスト表示に復活
+    editingAlert.name=text;editingAlert.zone=aZone;editingAlert.hidden=!aShow;editingAlert.done=false;editingAlert.got=0;  // 保存でリスト表示に復活
     sbItemUpdate(editingAlert);
   }else{
     const maxId=catalog.reduce((a,b)=>Math.max(a,b.id),0);
-    const a={uid:null,id:maxId+1,name:text,type:'アラート',zone:aZone,price:0,qty:1,done:false,keep:false,keepQty:0,hidden:false,got:0,picked_at:null,isAlert:true};
+    const a={uid:null,id:maxId+1,name:text,type:'アラート',zone:aZone,price:0,qty:1,done:false,keep:false,keepQty:0,hidden:!aShow,got:0,picked_at:null,isAlert:true};
     if(SB.ready()){const id=await sbItemInsert(a);if(id==null){toast('保存に失敗しました');return;}a.uid=id;}else{a.uid=uidSeq++;}
     catalog.push(a);
   }
