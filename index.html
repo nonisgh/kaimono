@@ -79,12 +79,14 @@
   .irow.alert .aico{font-size:16px;flex:none;}
   .irow.alert .drag{color:rgba(255,255,255,.75);}
   .irow.alert .bdg{box-shadow:0 0 0 1.5px rgba(255,255,255,.5);}
-  .bmrow{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:10px 12px;margin-bottom:8px;}
+  .bmrow{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:12px 12px;margin-bottom:8px;cursor:pointer;transition:.12s;box-shadow:0 2px 0 rgba(0,0,0,.04);}
+  .bmrow:hover{background:#f3ecd9;border-color:var(--green);}
+  .bmrow:active{transform:scale(.99);background:#ece2cb;box-shadow:none;}
   .bmrow .bmnm{flex:1;min-width:0;font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .bmrow .bmmeta{font-size:11px;color:var(--ink-soft);flex:none;}
-  .bmrow .bmload{border:0;background:var(--green);color:#fff;font-family:inherit;font-weight:800;font-size:12px;padding:7px 12px;border-radius:999px;cursor:pointer;flex:none;box-shadow:0 2px 0 var(--green-d);}
-  .bmrow .bmload:active{transform:translateY(1px);box-shadow:none;}
-  .bmrow .bmdel{border:1.5px solid #e6b8c2;background:#fff;color:var(--hot);font-family:inherit;font-weight:800;font-size:12px;padding:6px 9px;border-radius:999px;cursor:pointer;flex:none;}
+  .bmrow .bmgo{flex:none;background:var(--green);color:#fff;font-size:12px;font-weight:800;padding:5px 11px;border-radius:999px;white-space:nowrap;opacity:0;transform:translateX(6px);transition:.14s;pointer-events:none;}
+  .bmrow:hover .bmgo,.bmrow:active .bmgo{opacity:1;transform:none;}
+  .bmrow .bmdel{margin-left:2px;border:0;border-left:1.5px solid var(--line);background:none;color:var(--hot);font-family:inherit;font-weight:800;font-size:15px;padding:4px 4px 4px 12px;cursor:pointer;flex:none;}
   .bmempty{font-size:12px;color:var(--ink-soft);text-align:center;padding:14px 0;}
 
   .addbar{display:flex;gap:8px;margin:12px 0;}
@@ -374,7 +376,7 @@
 <div class="sheet" id="bmSheet">
   <div class="grab"></div>
   <h3>🔖 ブックマーク</h3>
-  <div style="font-size:12px;color:var(--ink-soft);margin:-4px 2px 10px;line-height:1.5;">今の「買うもの（個数）」を保存できます。読み込むと、今の内容をクリアしてから入れ替えます。最大10件。</div>
+  <div style="font-size:12px;color:var(--ink-soft);margin:-4px 2px 10px;line-height:1.5;">今の「買うもの（個数）」を保存できます。名前を空で保存すると日時が名前になります。一覧をタップで読み込み（今の内容をクリアして入れ替え）。</div>
   <div class="addbar" style="margin-bottom:10px;"><input id="bmName" type="text" placeholder="名前（例：いつもの平日）" enterkeyhint="done"><button class="addbtn" id="bmSaveBtn">保存</button></div>
   <div id="bmList"></div>
   <div class="sheetbtns" style="margin-top:6px;"><button class="b-cancel" id="bmClose">とじる</button></div>
@@ -1189,13 +1191,12 @@ function renderBookmarks(){
   if(!bookmarks.length){ el.innerHTML='<div class="bmempty">まだ ブックマークは ないよ</div>'; return; }
   el.innerHTML=bookmarks.map(b=>{
     const n=(b.data||[]).reduce((s,x)=>s+(x.qty||0),0);
-    return `<div class="bmrow" data-uid="${b.uid}"><span class="bmnm">${esc(b.name||'(名前なし)')}</span><span class="bmmeta">${(b.data||[]).length}品/${n}こ</span><button class="bmload" data-act="load">読込</button><button class="bmdel" data-act="del">✕</button></div>`;
+    return `<div class="bmrow" data-uid="${b.uid}"><span class="bmnm">${esc(b.name||'(名前なし)')}</span><span class="bmmeta">${(b.data||[]).length}品/${n}こ</span><span class="bmgo">→ 読込</span><button class="bmdel" data-act="del" aria-label="削除">✕</button></div>`;
   }).join('');
 }
 async function saveBookmark(){
-  const name=$('#bmName').value.trim();
-  if(!name){toast('名前を入れてね');return;}
-  if(bookmarks.length>=10){toast('10件まで。いらないのを消してね');return;}
+  let name=$('#bmName').value.trim();
+  if(!name){ const d=new Date(),p=n=>String(n).padStart(2,'0'); name=`${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
   const data=catalog.filter(i=>!i.isAlert&&i.qty>0).map(i=>({uid:i.uid,name:i.name,qty:i.qty}));
   if(!data.length){toast('「買うもの」が空だよ（編集で個数をつけてね）');return;}
   let uid;
@@ -1227,7 +1228,7 @@ $('#bookmarkBtn').addEventListener('click',openBookmarks);
 $('#bmClose').addEventListener('click',closeBookmarks);
 $('#bmBg').addEventListener('click',closeBookmarks);
 $('#bmSaveBtn').addEventListener('click',saveBookmark);
-$('#bmList').addEventListener('click',e=>{ const row=e.target.closest('.bmrow'); if(!row)return; const uid=Number(row.dataset.uid); if(e.target.closest('[data-act="load"]'))loadBookmark(uid); else if(e.target.closest('[data-act="del"]'))delBookmark(uid); });
+$('#bmList').addEventListener('click',e=>{ const row=e.target.closest('.bmrow'); if(!row)return; const uid=Number(row.dataset.uid); if(e.target.closest('[data-act="del"]')){delBookmark(uid);return;} loadBookmark(uid); });
 $('#keepToggle').addEventListener('click',()=>{editKeep=!editKeep;renderKeepBtn();});
 $('#hideToggle').addEventListener('click',()=>{editHidden=!editHidden;renderHideBtn();});
 $('#loadKeepBtn').addEventListener('click',loadKeep);
