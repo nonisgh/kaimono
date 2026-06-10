@@ -1075,6 +1075,7 @@ function openEdit(it,lock,isNew){
   else if(editLock){del.textContent='とじる';del.classList.remove('b-del');del.classList.add('b-cancel');}
   else{del.textContent='削除';del.classList.add('b-del');del.classList.remove('b-cancel');}
   $('#sheetBg').classList.add('open');$('#sheet').classList.add('open');
+  const sh=$('#sheet');sh.scrollTop=0;requestAnimationFrame(()=>{sh.scrollTop=0;});   // 開くたび先頭から
 }
 function openNewEdit(prefillName){
   const maxId=catalog.reduce((a,b)=>Math.max(a,b.id),0);
