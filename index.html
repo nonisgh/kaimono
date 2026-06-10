@@ -196,6 +196,13 @@
   .searchrow input{flex:1;min-width:0;border:none;background:transparent;font-family:inherit;font-size:15px;padding:10px 0;outline:none;color:var(--ink);}
   .searchrow .clr{flex:none;border:none;background:transparent;font-size:15px;color:var(--ink-soft);cursor:pointer;padding:6px;}
   .jumprow{display:flex;align-items:center;gap:6px;}
+  .minirow{display:flex;align-items:center;gap:6px;}
+  .minicur{flex:1;min-width:0;border-radius:999px;padding:6px 12px;font-family:inherit;font-weight:800;font-size:13px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;text-align:center;}
+  .minicur:active{transform:scale(.97);}
+  .findbar .findfull{display:none;flex-direction:column;gap:7px;}
+  .findbar.open .minirow{display:none;}
+  .findbar.open .findfull{display:flex;}
+  .fclose{border:none;background:transparent;font-family:inherit;font-weight:800;font-size:12px;color:var(--ink-soft);cursor:pointer;padding:2px;align-self:center;}
   .jumpbar{flex:1;min-width:0;display:flex;gap:6px;overflow-x:auto;padding:2px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-behavior:smooth;}
   .jumpbar::-webkit-scrollbar{display:none;}
   .jnav{flex:none;width:34px;height:30px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);font-family:inherit;font-weight:800;font-size:13px;color:var(--green-d);cursor:pointer;line-height:1;}
@@ -366,9 +373,18 @@
       </div>
     </div>
     <div class="hint">タップで ＋1 ・ 左にスワイプで −1</div>
-    <div class="findbar">
-      <div class="searchrow"><span class="si">🔍</span><input id="editSearch" type="text" placeholder="さがす（品名・商品名）" enterkeyhint="search"><button class="clr" id="editSearchClr">✕</button></div>
-      <div class="jumprow"><button class="jnav" data-jn="-1" data-jt="edit">◀</button><div class="jumpbar" id="editJump"></div><button class="jnav" data-jn="1" data-jt="edit">▶</button></div>
+    <div class="findbar" id="editFind">
+      <div class="minirow">
+        <button class="jnav fopen" data-ft="edit">🔍</button>
+        <button class="jnav" data-jn="-1">◀</button>
+        <button class="minicur" data-ft="edit"></button>
+        <button class="jnav" data-jn="1">▶</button>
+      </div>
+      <div class="findfull">
+        <div class="searchrow"><span class="si">🔍</span><input id="editSearch" type="text" placeholder="さがす（品名・商品名）" enterkeyhint="search"><button class="clr" id="editSearchClr">✕</button></div>
+        <div class="jumpbar" id="editJump"></div>
+        <button class="fclose" data-ft="edit">たたむ ▴</button>
+      </div>
     </div>
     <div id="editArea"></div>
   </main>
@@ -385,9 +401,18 @@
         <button class="ghostbtn" id="renumBtn">番号振り直し</button>
       </div>
     </div>
-    <div class="findbar">
-      <div class="searchrow"><span class="si">🔍</span><input id="itemSearch" type="text" placeholder="さがす（品名・商品名）" enterkeyhint="search"><button class="clr" id="itemSearchClr">✕</button></div>
-      <div class="jumprow"><button class="jnav" data-jn="-1" data-jt="item">◀</button><div class="jumpbar" id="itemJump"></div><button class="jnav" data-jn="1" data-jt="item">▶</button></div>
+    <div class="findbar" id="itemFind">
+      <div class="minirow">
+        <button class="jnav fopen" data-ft="item">🔍</button>
+        <button class="jnav" data-jn="-1">◀</button>
+        <button class="minicur" data-ft="item"></button>
+        <button class="jnav" data-jn="1">▶</button>
+      </div>
+      <div class="findfull">
+        <div class="searchrow"><span class="si">🔍</span><input id="itemSearch" type="text" placeholder="さがす（品名・商品名）" enterkeyhint="search"><button class="clr" id="itemSearchClr">✕</button></div>
+        <div class="jumpbar" id="itemJump"></div>
+        <button class="fclose" data-ft="item">たたむ ▴</button>
+      </div>
     </div>
     <div id="itemArea"></div>
   </main>
@@ -972,9 +997,12 @@ function renderActive(){if(activeTab==='list')renderList();else if(activeTab==='
 function matchItem(it,ft){ if(!ft)return true; return (it.name||'').toLowerCase().includes(ft)||(it.product||'').toLowerCase().includes(ft); }
 function renderJump(barSel,present,sortMode,ft){
   const bar=$(barSel);if(!bar)return;
-  const row=bar.closest('.jumprow')||bar;
-  if(sortMode!=='zone'||ft){row.style.display='none';bar.innerHTML='';return;}
-  row.style.display='flex';bar.style.display='flex';
+  const find=bar.closest('.findbar');
+  const mini=find?find.querySelector('.minirow'):null;
+  if(sortMode!=='zone'){ if(mini)mini.querySelectorAll('.jnav:not(.fopen),.minicur').forEach(x=>x.style.display='none'); bar.innerHTML='';bar.style.display='none';return; }
+  if(mini)mini.querySelectorAll('.jnav,.minicur').forEach(x=>x.style.display='');
+  if(ft){bar.innerHTML='';bar.style.display='none';return;}
+  bar.style.display='flex';
   bar.innerHTML=ZONES.map(z=>{const c=zoneColorOf(z);const on=present.has(z.code);return `<button class="jchip ${on?'':'off'}" data-jz="${esc(z.code)}" style="background:${c.bg};color:${c.ink};border:1.5px solid ${c.ink}">${esc(z.code)}</button>`;}).join('');
   requestAnimationFrame(updateJumpCur);
 }
@@ -990,6 +1018,15 @@ function layoutSticky(){
   const fbh=(fb&&fb.offsetHeight)?fb.offsetHeight:0;
   document.documentElement.style.setProperty('--stick',(h+fbh+10)+'px');
 }
+function updateMiniCur(code){                                 // ミニ行の現在地チップを更新
+  const c=curArea(); if(!c)return;
+  const find=$(c.area==='#editArea'?'#editFind':'#itemFind'); if(!find)return;
+  const mc=find.querySelector('.minicur'); if(!mc)return;
+  if(!code){ mc.textContent='—'; mc.style.background='var(--card)'; mc.style.color='var(--ink)'; mc.style.borderColor='var(--line)'; return; }
+  const z=zoneOf(code),f=zoneColorOf(z);
+  mc.textContent=z.code+'　'+(z.label||'');
+  mc.style.background=f.bg; mc.style.color=f.ink; mc.style.borderColor=f.ink;
+}
 function curArea(){ return activeTab==='edit'?{area:'#editArea',bar:'#editJump',sort:editSort,ft:editFilter}:activeTab==='item'?{area:'#itemArea',bar:'#itemJump',sort:itemSort,ft:itemFilter}:null; }
 function currentZone(){                                       // 画面上部に今見えている売り場
   const c=curArea(); if(!c||c.sort!=='zone'||c.ft)return null;
@@ -1000,18 +1037,20 @@ function currentZone(){                                       // 画面上部に
   if(!cur&&grps.length)cur=grps[0].dataset.zone;
   return cur;
 }
-let _jzTick=null;
-function updateJumpCur(){                                     // 現在地チップを光らせて中央へスライド
+let _jzTick=null,_jzIdle=null;
+function updateJumpCur(slide){                                // 現在地チップを光らせる（slide=trueで中央へ）
   const c=curArea(); if(!c)return;
   const code=currentZone(); const bar=$(c.bar); if(!bar)return;
-  bar.querySelectorAll('.jchip').forEach(ch=>{
-    const on=ch.dataset.jz===code;
-    ch.classList.toggle('cur',on);
-    if(on){ const bl=bar.getBoundingClientRect(),cl=ch.getBoundingClientRect();
-      bar.scrollLeft+=cl.left-bl.left-(bl.width-cl.width)/2; }
-  });
+  let curEl=null;
+  bar.querySelectorAll('.jchip').forEach(ch=>{const on=ch.dataset.jz===code;ch.classList.toggle('cur',on);if(on)curEl=ch;});
+  updateMiniCur(code);
+  if(slide&&curEl){ const bl=bar.getBoundingClientRect(),cl=curEl.getBoundingClientRect();
+    bar.scrollTo({left:bar.scrollLeft+cl.left-bl.left-(bl.width-cl.width)/2,behavior:'smooth'}); }
 }
-window.addEventListener('scroll',()=>{ if(_jzTick)return; _jzTick=requestAnimationFrame(()=>{_jzTick=null;updateJumpCur();}); },{passive:true});
+window.addEventListener('scroll',()=>{
+  if(!_jzTick)_jzTick=requestAnimationFrame(()=>{_jzTick=null;updateJumpCur(false);});
+  clearTimeout(_jzIdle);_jzIdle=setTimeout(()=>updateJumpCur(true),140);   // 止まってからスライド
+},{passive:true});
 function jumpStep(dir){                                       // ◀▶で前後の売り場へ
   const c=curArea(); if(!c||c.sort!=='zone'||c.ft)return;
   const grps=[...document.querySelectorAll(c.area+' .grp[data-zone]')].filter(g=>g.dataset.zone);
@@ -1247,7 +1286,22 @@ $('#itemSearch').addEventListener('input',e=>{itemFilter=e.target.value.trim().t
 $('#itemSearchClr').addEventListener('click',()=>{itemFilter='';$('#itemSearch').value='';renderItems();});
 $('#editJump').addEventListener('click',e=>{const b=e.target.closest('.jchip');if(b)jumpToZone('#editArea',b.dataset.jz);});
 $('#itemJump').addEventListener('click',e=>{const b=e.target.closest('.jchip');if(b)jumpToZone('#itemArea',b.dataset.jz);});
-document.querySelectorAll('.jnav').forEach(b=>b.addEventListener('click',()=>jumpStep(parseInt(b.dataset.jn,10))));
+document.querySelectorAll('.jnav[data-jn]').forEach(b=>b.addEventListener('click',()=>jumpStep(parseInt(b.dataset.jn,10))));
+document.querySelectorAll('.fopen').forEach(b=>b.addEventListener('click',()=>{
+  const find=$(b.dataset.ft==='edit'?'#editFind':'#itemFind'); find.classList.add('open'); layoutSticky();
+  const inp=find.querySelector('input'); if(inp)inp.focus();
+}));
+document.querySelectorAll('.minicur').forEach(b=>b.addEventListener('click',()=>{
+  const find=$(b.dataset.ft==='edit'?'#editFind':'#itemFind'); find.classList.add('open'); layoutSticky();
+  requestAnimationFrame(()=>updateJumpCur(true));
+}));
+document.querySelectorAll('.fclose').forEach(b=>b.addEventListener('click',()=>{
+  const ed=b.dataset.ft==='edit';
+  const find=$(ed?'#editFind':'#itemFind'); find.classList.remove('open');
+  if(ed&&editFilter){editFilter='';$('#editSearch').value='';renderEdit();}
+  if(!ed&&itemFilter){itemFilter='';$('#itemSearch').value='';renderItems();}
+  layoutSticky();
+}));
 window.addEventListener('resize',layoutSticky);
 $('#editAddBtn').addEventListener('click',()=>addFrom('#editAddInput',renderEdit));
 $('#editAddInput').addEventListener('keydown',e=>{if(e.key==='Enter')addFrom('#editAddInput',renderEdit);});
