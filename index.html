@@ -16,6 +16,7 @@
     --hot:#c83c4a; --hot-soft:#f8dce1;
     --shadow:0 2px 0 #ece3cf, 0 8px 20px -10px rgba(80,70,40,.35);
     --radius:16px;
+    --badge-a:.08;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   body{-webkit-user-select:none;-moz-user-select:none;user-select:none;-webkit-touch-callout:none;}
@@ -172,11 +173,14 @@
   .hitem .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:none;}
   .hitem .hn{font-size:15px;font-weight:500;flex:1;}
 
-  /* 編集行の画像ありアイコン */
-  .imgico{flex:none;width:30px;height:30px;border-radius:9px;border:1.5px solid var(--line);background:var(--paper2);display:grid;place-items:center;font-size:15px;cursor:pointer;color:var(--green-d);line-height:1;}
-  .imgico:active{transform:scale(.92);background:#e8dcc2;}
-  .srow-img{flex:none;align-self:center;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;font-size:16px;background:rgba(255,255,255,.78);margin-left:6px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  /* 編集行の画像ありアイコン（タップで表示） */
+  .imgico{flex:none;width:26px;height:26px;border-radius:8px;border:1.5px solid rgba(0,0,0,.10);background:rgba(0,0,0,var(--badge-a));display:grid;place-items:center;font-size:13px;cursor:pointer;color:var(--green-d);line-height:1;}
+  .imgico:active{transform:scale(.92);filter:brightness(.92);}
+  /* リスト行の写真バッジ（小さめ・色背景になじむ・右スワイプでも表示） */
+  .srow-img{flex:none;align-self:center;width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:12px;background:rgba(0,0,0,var(--badge-a));margin-left:6px;line-height:1;}
   .srow-img:active{transform:scale(.9);}
+  /* 品目行：写真ありの目印 */
+  .hasimg{flex:none;font-size:12px;opacity:.6;margin:0 1px;}
 
   /* 画像ポップアップ */
   .imgpop{position:fixed;inset:0;z-index:90;background:rgba(40,36,28,.78);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:18px;opacity:0;pointer-events:none;transition:.2s;}
@@ -192,6 +196,8 @@
   .imgedit{margin:6px 0 4px;}
   .imgedit .frame{width:100%;border-radius:14px;border:1.5px dashed var(--line);background:var(--paper2);min-height:120px;display:grid;place-items:center;overflow:hidden;cursor:pointer;transition:.12s;}
   .imgedit .frame.drop{border-color:var(--green);background:#eef3e6;}
+  .imgedit .frame.has{min-height:0;aspect-ratio:3/4;max-width:264px;margin:0 auto;border-style:solid;}
+  .imgedit .frame.has img{width:100%;height:100%;max-height:none;object-fit:cover;border-radius:13px;}
   .imgedit .frame img{width:100%;max-height:240px;object-fit:contain;display:block;background:#fff;}
   .imgedit .frame .ph{color:var(--ink-soft);font-size:13px;font-weight:700;padding:30px 10px;text-align:center;}
   .imgedit .btns{display:flex;gap:8px;margin-top:8px;}
@@ -431,6 +437,11 @@
   <div style="margin-top:14px;border-top:1.5px solid var(--line);padding-top:12px;">
     <button id="hapticToggle" class="keepbtn">📳 タップ振動：ON</button>
     <div style="font-size:11px;color:var(--ink-soft);margin-top:6px;line-height:1.5;">タップやカゴ入れのとき、軽く振動します（端末が対応している場合）</div>
+    <div style="margin-top:14px;">
+      <label style="display:block;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px;">📷 写真バッジの濃さ <span id="badgeAlphaVal" style="color:var(--ink-soft);font-weight:700;font-size:12px;"></span></label>
+      <input id="badgeAlpha" type="range" min="0" max="30" step="1" style="width:100%;">
+      <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">リスト・編集の📷バッジを売り場の色になじませる度合い</div>
+    </div>
   </div>
   <div class="sheetbtns" style="margin-top:12px;"><button class="b-done" id="zoneDone">とじる</button></div>
 </div>
@@ -719,7 +730,7 @@ function subscribe(){
 }
 async function init(){
   initDB();
-  applyReverse(); applyRevPad();                     // 保存済みのリバース設定を反映
+  applyReverse(); applyRevPad(); applyBadgeAlpha();   // 保存済みのリバース設定・バッジ濃さを反映
   loadLocal(); renderActive();                       // まずローカルで即表示
   if(SB.ready()){
     try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); }
@@ -874,6 +885,7 @@ function renderItems(){ saveLocal();
         <span class="idn" style="background:${f.bg};color:${f.ink}">${it.id}</span>${bdg(it.zone,'bdg')}
         <button class="starbtn ${it.keep?'on':''}" data-act="keep">${it.keep?'★':'☆'}</button>
         <div class="namecell"><span class="nm">${esc(it.name)}</span>${it.product?`<span class="prod">${esc(it.product)}</span>`:''}</div>
+        ${it.image?'<span class="hasimg">📷</span>':''}
         ${it.hidden?'<span class="hidetag">非表示</span>':''}
         <span class="type">${esc(it.type)}</span>
         <span class="price">${it.price>0?yen(taxIncl(it.price)):'¥—'}</span></div>`;
@@ -1016,6 +1028,8 @@ function openImg(it){ if(!it||!it.image)return; $('#imgPopImg').src=it.image; $(
 function closeImg(){ $('#imgPop').classList.remove('open'); }
 $('#imgPop').addEventListener('click',closeImg);
 let hapticOn=(localStorage.getItem('kaimono.haptic')??'1')==='1';
+let badgeAlpha=parseInt(localStorage.getItem('kaimono.badgealpha')??'8',10);
+function applyBadgeAlpha(){ document.documentElement.style.setProperty('--badge-a',(badgeAlpha/100).toFixed(3)); const s=$('#badgeAlpha'),v=$('#badgeAlphaVal'); if(s)s.value=badgeAlpha; if(v)v.textContent=badgeAlpha+'%'; }
 function haptic(kind){
   if(!hapticOn)return;
   if(navigator.vibrate){ navigator.vibrate(kind==='ok'?[10,35,10]:kind==='done'?16:7); return; }
@@ -1037,8 +1051,8 @@ function renderHideBtn(){const b=$('#hideToggle');b.classList.toggle('on',!editH
 function renderSheetImage(){
   const fr=$('#imgFrame'),del=$('#imgDel'),pick=$('#imgPick'),busy=$('#imgBusy');
   busy.style.display='none';
-  if(editing&&editing.image){ fr.innerHTML=`<img src="${editing.image}" alt="">`; del.style.display=''; pick.textContent='📷 差し替え'; }
-  else{ fr.innerHTML='<span class="ph">写真なし<br>クリック / ドラッグ&ドロップ</span>'; del.style.display='none'; pick.textContent='📷 写真を追加'; }
+  if(editing&&editing.image){ fr.classList.add('has');fr.innerHTML=`<img src="${editing.image}" alt="">`; del.style.display=''; pick.textContent='📷 差し替え'; }
+  else{ fr.classList.remove('has');fr.innerHTML='<span class="ph">写真なし<br>クリック / ドラッグ&ドロップ</span>'; del.style.display='none'; pick.textContent='📷 写真を追加'; }
 }
 function openEdit(it,lock){
   editing=it;editLock=!!lock;editZone=it.zone;editType=it.type;editQty=Math.max(1,it.keepQty||1);editKeep=it.keep;editHidden=!!it.hidden;
@@ -1088,7 +1102,7 @@ function setZoneCode(i,newCode){
   recomputeZones();renderZoneAdmin();
 }
 let zoneSnap=new Map();
-function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();renderHapticBtn();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
+function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();renderHapticBtn();applyBadgeAlpha();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
 async function closeZoneAdmin(){
   $('#zoneBg').classList.remove('open');$('#zoneSheet').classList.remove('open');recomputeZones();
   if(SB.ready()){
@@ -1389,6 +1403,7 @@ $('#copyBtn').addEventListener('click',async()=>{
 $('#gearBtn').addEventListener('click',openZoneAdmin);
 $('#zoneDone').addEventListener('click',closeZoneAdmin);
 $('#hapticToggle').addEventListener('click',()=>{hapticOn=!hapticOn;localStorage.setItem('kaimono.haptic',hapticOn?'1':'0');renderHapticBtn();if(hapticOn)haptic('done');});
+$('#badgeAlpha').addEventListener('input',e=>{badgeAlpha=parseInt(e.target.value,10)||0;localStorage.setItem('kaimono.badgealpha',String(badgeAlpha));applyBadgeAlpha();});
 $('#zoneBg').addEventListener('click',closeZoneAdmin);
 $('#zAddBtn').addEventListener('click',()=>{
   const code=$('#zAddCode').value.trim(),label=$('#zAddLabel').value.trim();
