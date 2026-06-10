@@ -70,6 +70,15 @@
   .alertbar.off{background:#ece4d2;color:#9a917d;box-shadow:none;}
   .alertbar.off .atag{background:#ddd2bb;color:#7d745f;}
   #itemArea .alertbar{cursor:pointer;}
+  .srow.alert{background:var(--hot);border-color:#a02f3c;border-left:5px solid #a02f3c;color:#fff;}
+  .srow.alert .nm{color:#fff;font-weight:800;}
+  .srow.alert:active{transform:scale(.99);}
+  .irow.alert{background:var(--hot);border-color:#a02f3c;cursor:pointer;}
+  .irow.alert .nm{color:#fff;font-weight:800;}
+  .irow.alert .type{color:#fff;opacity:.85;}
+  .irow.alert .aico{font-size:16px;flex:none;}
+  .irow.alert .drag{color:rgba(255,255,255,.75);}
+  .irow.alert .bdg{box-shadow:0 0 0 1.5px rgba(255,255,255,.5);}
 
   .addbar{display:flex;gap:8px;margin:12px 0;}
   .addbar input{flex:1;min-width:0;font-family:inherit;font-size:16px;font-weight:500;border:2px solid var(--line);background:var(--card);border-radius:13px;padding:12px 14px;color:var(--ink);outline:none;transition:.15s;}
@@ -346,8 +355,8 @@
   <div class="grab"></div>
   <h3>⚡ アラート</h3>
   <div class="field"><label>文言</label><input id="aText" type="text" placeholder="例：電子マネーをチャージ！" enterkeyhint="done"></div>
-  <div class="field"><label>この売り場の手前に表示</label><div class="chips" id="aZoneChips"></div></div>
-  <div class="field"><label>表示</label><button id="aEnable" class="keepbtn">表示する</button><div style="font-size:11px;color:var(--ink-soft);margin-top:6px;line-height:1.5;">ONのときだけ「リスト」に赤いラベルが出ます（売り場順のとき）。今回その売り場の品が無ければ、リストの末尾（レジ前）に出ます。</div></div>
+  <div class="field"><label>売り場（品目でドラッグして好きな位置に置けます）</label><div class="chips" id="aZoneChips"></div></div>
+  <div style="font-size:11px;color:var(--ink-soft);margin:-2px 2px 10px;line-height:1.5;">リストでは普通の品と同じ大きさの赤い行で出ます。タップすると消え、次の買い物でまた出ます。</div>
   <div class="sheetbtns"><button class="b-del" id="aDel">削除</button><button class="b-save" id="aSave">保存</button></div>
 </div>
 
@@ -501,8 +510,7 @@ let uidSeq=1;
 let catalog=RAW.map(([zone,name,type,qty],i)=>({uid:uidSeq++,id:i+1,name,type,zone,price:0,qty,done:false,keep:false,keepQty:0}));
 
 let history=[{bid:0,date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌'},{name:'りんご ×2'}]}];
-let alerts=[];                       // {uid,text,zone,enabled} 売り場の手前に出す赤いラベル
-let editingAlert=null,aZone='その他',aEnabled=true;
+let editingAlert=null,aZone='その他';   // アラート編集中の品目（catalog内）
 let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editLock=false,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false;
 let itemSortables=[],zoneSortable=null,confirmCb=null,histSort='pick';
 let revMode=(localStorage.getItem('kaimono.rev')??'0')==='1';
@@ -521,7 +529,7 @@ function showSync(kind){ const d=document.getElementById('syncDot'); if(!d)retur
 function syncPulse(){ if(!SB.ready())return; lastWrite=Date.now(); showSync('up'); }
 function syncPulseDown(){ if(!SB.ready())return; showSync('down'); }
 
-function itemRow(it){return {item_no:it.id,name:it.name,category:it.type,zone_code:it.zone,price:it.price,qty:it.qty,done:it.done,keep:it.keep,keep_qty:it.keepQty,hidden:!!it.hidden,got:it.got||0,picked_at:it.picked_at||null};}
+function itemRow(it){return {item_no:it.id,name:it.name,category:it.type,zone_code:it.zone,price:it.price,qty:it.qty,done:it.done,keep:it.keep,keep_qty:it.keepQty,hidden:!!it.hidden,got:it.got||0,picked_at:it.picked_at||null,is_alert:!!it.isAlert};}
 function itemRowId(it){return Object.assign({id:it.uid},itemRow(it));}
 function zoneRow(z,i){return {code:z.code,label:z.label,color:z.fam,sort_order:i};}
 
@@ -540,12 +548,8 @@ function sbLogInsert(batchId,label,when,entries){ if(!SB.ready())return; syncPul
 function sbLogDelete(bid){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').delete().eq('batch_id',bid).then(r=>{if(r.error)console.error(r.error);}); }
 
 async function loadZones(){ const {data,error}=await SB.client.from('zones').select('*').order('sort_order'); if(error){console.error(error);return;} if(data&&data.length){ const seen=new Set(),arr=[]; for(const r of data){ if(seen.has(r.code))continue; seen.add(r.code); arr.push({code:r.code,label:r.label,fam:r.color}); } ZONES=arr; if(!ZONES.some(z=>z.code==='その他'))ZONES.push({code:'その他',label:'その他',fam:'etc'}); recomputeZones(); } }
-async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden,got:r.got||0,picked_at:r.picked_at||null})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } }
+async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden,got:r.got||0,picked_at:r.picked_at||null,isAlert:!!r.is_alert})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } }
 async function loadHistory(){ const {data,error}=await SB.client.from('purchase_log').select('*').order('archived_at',{ascending:false}); if(error){console.error(error);return;} const map=new Map(); for(const r of data){ if(!map.has(r.batch_id))map.set(r.batch_id,{bid:r.batch_id,date:r.label,list:[]}); map.get(r.batch_id).list.push({name:r.qty>1?`${r.name} ×${r.qty}`:r.name,zone:r.zone_code||null,itemId:r.item_id??null,picked:r.picked_at||null}); } history=[...map.values()]; }
-async function loadAlerts(){ if(!SB.ready())return; const {data,error}=await SB.client.from('alerts').select('*').order('created_at'); if(error){console.warn('alerts 読み込み不可（テーブル未作成かも）',error.message);return;} alerts=data.map(r=>({uid:Number(r.id),text:r.text||'',zone:r.zone_code||'その他',enabled:r.enabled!==false})); }
-async function sbAlertInsert(a){ if(!SB.ready())return null; syncPulse(); const {data,error}=await SB.client.from('alerts').insert({text:a.text,zone_code:a.zone,enabled:a.enabled}).select().single(); if(error){console.error(error);return null;} return data.id; }
-function sbAlertUpdate(a){ if(!SB.ready())return; syncPulse(); SB.client.from('alerts').update({text:a.text,zone_code:a.zone,enabled:a.enabled}).eq('id',a.uid).then(r=>{if(r.error)console.error(r.error);}); }
-function sbAlertDelete(uid){ if(!SB.ready())return; syncPulse(); SB.client.from('alerts').delete().eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
 async function seedIfEmpty(){
   const z=await SB.client.from('zones').select('code',{count:'exact',head:true});
   if(!z.error && z.count===0) await SB.client.from('zones').insert(ZONES.map((zz,i)=>zoneRow(zz,i)));
@@ -556,20 +560,19 @@ async function refresh(){
   if(!SB.ready())return;
   if(document.getElementById('sheet').classList.contains('open'))return; // 編集中は触らない
   await flushWrites();
-  try{ if(!$('#zoneSheet').classList.contains('open')) await loadZones(); await loadItems(); await loadHistory(); await loadAlerts(); }catch(e){console.error(e);}
+  try{ if(!$('#zoneSheet').classList.contains('open')) await loadZones(); await loadItems(); await loadHistory(); }catch(e){console.error(e);}
   syncPulseDown(); renderActive();
 }
 function syncRender(){ renderActive(); }
 function incoming(){ if(Date.now()-lastWrite>1500) syncPulseDown(); }
 
 /* ===== ローカル保存 & 書き込みキュー（テンポ優先） ===== */
-const LS={items:'kaimono.items',zones:'kaimono.zones',hist:'kaimono.history',alerts:'kaimono.alerts'};
-function saveLocal(){ try{ localStorage.setItem(LS.items,JSON.stringify(catalog)); localStorage.setItem(LS.zones,JSON.stringify(ZONES)); localStorage.setItem(LS.hist,JSON.stringify(history)); localStorage.setItem(LS.alerts,JSON.stringify(alerts)); }catch(e){} }
+const LS={items:'kaimono.items',zones:'kaimono.zones',hist:'kaimono.history'};
+function saveLocal(){ try{ localStorage.setItem(LS.items,JSON.stringify(catalog)); localStorage.setItem(LS.zones,JSON.stringify(ZONES)); localStorage.setItem(LS.hist,JSON.stringify(history)); }catch(e){} }
 function loadLocal(){ try{
   const i=localStorage.getItem(LS.items); if(i){const a=JSON.parse(i); if(Array.isArray(a)&&a.length)catalog=a;}
   const z=localStorage.getItem(LS.zones); if(z){const a=JSON.parse(z); if(Array.isArray(a)&&a.length){ZONES=a;recomputeZones();}}
   const h=localStorage.getItem(LS.hist); if(h){const a=JSON.parse(h); if(Array.isArray(a))history=a;}
-  const al=localStorage.getItem(LS.alerts); if(al){const a=JSON.parse(al); if(Array.isArray(a))alerts=a;}
 }catch(e){} }
 
 let quietUntil=0, writeTimer=null, reconcileTimer=null; const writeQ=new Map(); const localOverride=new Map();
@@ -603,7 +606,6 @@ function subscribe(){
     })
     .on('postgres_changes',{event:'*',schema:'public',table:'zones'},async()=>{ if($('#zoneSheet').classList.contains('open'))return; await loadZones();incoming();syncRender(); })
     .on('postgres_changes',{event:'*',schema:'public',table:'purchase_log'},async()=>{await loadHistory();incoming();if(activeTab==='hist')renderHist();})
-    .on('postgres_changes',{event:'*',schema:'public',table:'alerts'},async()=>{await loadAlerts();incoming();syncRender();})
     .subscribe();
 }
 async function init(){
@@ -611,7 +613,7 @@ async function init(){
   applyReverse(); applyRevPad();                     // 保存済みのリバース設定を反映
   loadLocal(); renderActive();                       // まずローカルで即表示
   if(SB.ready()){
-    try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadAlerts(); }
+    try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); }
     catch(e){ console.error(e); toast('同期エラー（コンソール参照）'); }
     renderActive(); subscribe();
   }
@@ -647,32 +649,28 @@ function groupHeader(g){
   if(g.kind==='type')return `<div class="grphead"><span class="nm" style="font-size:13px;color:var(--green-d)">${esc(g.name)}</span><span class="ln"></span></div>`;
   return '';
 }
-function alertBar(a,admin){const off=!a.enabled;return `<div class="alertbar ${off?'off':''}" ${admin?`data-aid="${a.uid}"`:''}>⚡ <span class="atxt">${esc(a.text||'(文言なし)')}</span>${admin?`<span class="atag">${off?'非表示':bdg(a.zone,'bdg')}</span>`:''}</div>`;}
-const tripTotal=()=>catalog.filter(i=>i.qty>0).reduce((s,i)=>s+(i.price||0)*i.qty,0);
+const tripTotal=()=>catalog.filter(i=>i.qty>0&&!i.isAlert).reduce((s,i)=>s+(i.price||0)*i.qty,0);
 
 /* ===== LIST ===== */
 function renderList(){ saveLocal();
-  const trip=catalog.filter(i=>i.qty>0);
-  const todo=trip.filter(i=>!i.done), done=trip.filter(i=>i.done);
-  $('#remain').textContent=todo.length;
+  const realTrip=catalog.filter(i=>i.qty>0&&!i.isAlert);
+  const doneReal=realTrip.filter(i=>i.done);
+  $('#remain').textContent=realTrip.filter(i=>!i.done).length;
   $('#listTotal').textContent=yen(taxIncl(tripTotal()));
-  $('#checkoutBtn').disabled=done.length===0;
-  $('#checkoutTxt').textContent=done.length>0?`カゴの ${done.length}こ を記録する`:'カゴに入れたものを記録';
-  const show=listSeg==='todo'?todo:done;
+  $('#checkoutBtn').disabled=doneReal.length===0;
+  $('#checkoutTxt').textContent=doneReal.length>0?`カゴの ${doneReal.length}こ を記録する`:'カゴに入れたものを記録';
+  const show=listSeg==='todo'?catalog.filter(i=>i.qty>0&&!i.done):catalog.filter(i=>i.qty>0&&i.done&&!i.isAlert);
   const area=$('#listArea');
   if(show.length===0){area.innerHTML=`<div class="empty"><div class="e">${listSeg==='todo'?'🛒':'✅'}</div>${listSeg==='todo'?'のこりは ありません<br>「編集」で こすうを つけてね':'まだ カゴに 入れた品は ないよ'}</div>`;$('#restoreWrap').innerHTML='';return;}
   const showBadge=listSort!=='zone';
   let html='';
   let groups=groupItems(sortItems(show,listSort),listSort);
   if(revMode){ groups=groups.slice().reverse(); groups.forEach(g=>g.items=g.items.slice().reverse()); }
-  const useAlerts=(listSort==='zone'&&listSeg==='todo'); const shownZones=new Set();
   for(const g of groups){
-    const bars=(useAlerts&&g.kind==='zone')?alerts.filter(a=>a.enabled&&a.zone===g.code).map(a=>alertBar(a,false)).join(''):'';
-    if(g.kind==='zone')shownZones.add(g.code);
-    if(!revMode&&bars)html+=bars;                       // 手前（上）に表示
     html+='<div class="grp">';
     if(!revMode) html+=groupHeader(g);
     for(const it of g.items){
+      if(it.isAlert){ html+=`<div class="srow alert" data-uid="${it.uid}"><span class="nm">⚡ ${esc(it.name||'')}</span></div>`; continue; }
       const rem=Math.max(0,it.qty-(it.got||0));
       const multi=it.qty>1;
       const hot=!it.done&&rem>=2;
@@ -686,18 +684,13 @@ function renderList(){ saveLocal();
     }
     if(revMode) html+=groupHeader(g);
     html+='</div>';
-    if(revMode&&bars)html+=bars;                         // 逆順では下＝手前に表示
-  }
-  if(useAlerts){                                         // 今回その売り場が無いアラートは末尾（レジ前想定）に
-    const orphan=alerts.filter(a=>a.enabled&&!shownZones.has(a.zone)).map(a=>alertBar(a,false)).join('');
-    if(orphan) html = revMode ? (orphan+html) : (html+orphan);
   }
   area.innerHTML=html;
   $('#restoreWrap').innerHTML=(listSeg==='done'&&show.length>0)?'<button id="restoreAllBtn" class="restoreall">↩︎ ぜんぶ のこりに もどす</button>':'';
 }
 function updateListChrome(){                       // 行は触らずヘッダーの数字だけ更新（全再描画しない）
-  const trip=catalog.filter(i=>i.qty>0);
-  const todo=trip.filter(i=>!i.done), done=trip.filter(i=>i.done);
+  const realTrip=catalog.filter(i=>i.qty>0&&!i.isAlert);
+  const todo=realTrip.filter(i=>!i.done), done=realTrip.filter(i=>i.done);
   $('#remain').textContent=todo.length;
   $('#listTotal').textContent=yen(taxIncl(tripTotal()));
   $('#checkoutBtn').disabled=done.length===0;
@@ -714,7 +707,7 @@ function renderEdit(){ saveLocal();
   $('#editTotal').textContent=yen(taxIncl(tripTotal()));
   const showBadge=editSort!=='zone';
   let html='';
-  for(const g of groupItems(sortItems(catalog.filter(i=>!i.hidden),editSort),editSort)){
+  for(const g of groupItems(sortItems(catalog.filter(i=>!i.hidden&&!i.isAlert),editSort),editSort)){
     html+='<div class="grp">'+groupHeader(g);
     for(const it of g.items){
       const hot=it.qty>=2;const f=zoneColorOf(zoneOf(it.zone));
@@ -748,14 +741,20 @@ function initItemSortables(){
   });
 }
 function renderItems(){ saveLocal();
-  $('#itemCount').textContent=catalog.length;
+  $('#itemCount').textContent=catalog.filter(i=>!i.isAlert).length;
   const draggable=(itemSort==='zone'||itemSort==='id');
-  const useAlerts=(itemSort==='zone'); const shownZones=new Set();
   let html='';
   for(const g of groupItems(sortItems(catalog,itemSort),itemSort)){
-    if(useAlerts&&g.kind==='zone'){ shownZones.add(g.code); html+=alerts.filter(a=>a.zone===g.code).map(a=>alertBar(a,true)).join(''); }
     html+='<div class="grp">'+groupHeader(g)+`<div class="itemsbox" data-zone="${g.kind==='zone'?esc(g.code):''}">`;
     for(const it of g.items){
+      if(it.isAlert){
+        html+=`<div class="irow alert" data-uid="${it.uid}" data-alert="1">
+          ${draggable?'<span class="drag">≡</span>':''}
+          <span class="aico">⚡</span>
+          <span class="nm">${esc(it.name||'(文言なし)')}</span>
+          ${bdg(it.zone,'bdg')}<span class="type">アラート</span></div>`;
+        continue;
+      }
       const f=zoneColorOf(zoneOf(it.zone));
       html+=`<div class="irow ${it.hidden?'dim':''}" data-uid="${it.uid}">
         ${draggable?'<span class="drag">≡</span>':''}
@@ -768,7 +767,6 @@ function renderItems(){ saveLocal();
     }
     html+='</div></div>';
   }
-  if(useAlerts){ const orphan=alerts.filter(a=>!shownZones.has(a.zone)).map(a=>alertBar(a,true)).join(''); if(orphan)html+=orphan; }
   $('#itemArea').innerHTML=html;
   initItemSortables();
 }
@@ -816,16 +814,19 @@ async function addFrom(inputSel,after){
 }
 function clearAll(){
   askConfirm('今回の「買うもの」を全部クリア','個数をすべて0に戻します（品目リストは消えません）',()=>{
-    const changed=catalog.filter(i=>i.qty>0||i.done||i.got||i.picked_at);
-    catalog.forEach(i=>{i.done=false;i.qty=0;i.got=0;i.picked_at=null;});
-    sbBulkSet(changed.map(i=>({id:i.uid,qty:0,done:false,got:0,picked_at:null})));renderEdit();toast('クリアしました');
+    const rows=[];
+    catalog.forEach(i=>{
+      if(i.isAlert){ if(i.done||i.got){ i.done=false;i.got=0; rows.push({id:i.uid,done:false,got:0}); } }
+      else if(i.qty>0||i.done||i.got||i.picked_at){ i.qty=0;i.done=false;i.got=0;i.picked_at=null; rows.push({id:i.uid,qty:0,done:false,got:0,picked_at:null}); }
+    });
+    sbBulkSet(rows);renderEdit();toast('クリアしました');
   });
 }
 function askConfirm(title,msg,cb){confirmCb=cb;$('#confTitle').textContent=title;$('#confMsg').textContent=msg;$('#confBg').classList.add('open');$('#confSheet').classList.add('open');}
 function closeConfirm(){$('#confBg').classList.remove('open');$('#confSheet').classList.remove('open');confirmCb=null;}
 
 function checkout(){
-  const done=catalog.filter(i=>i.qty>0&&i.done);if(done.length===0)return;
+  const done=catalog.filter(i=>i.qty>0&&i.done&&!i.isAlert);if(done.length===0)return;
   const now=new Date(),wd=['日','月','火','水','木','金','土'][now.getDay()];
   const label=`${now.getMonth()+1}月${now.getDate()}日(${wd}) ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const sd=sortItems(done,'zone');
@@ -835,6 +836,9 @@ function checkout(){
   if(SB.ready()) sbLogInsert(bid,label,now.toISOString(),sd.map(i=>({name:i.name,qty:i.qty,price:i.price,zone:i.zone,itemId:i.uid,picked:i.picked_at})));
   done.forEach(i=>{i.done=false;i.qty=0;i.got=0;i.picked_at=null;});
   sbBulkSet(done.map(i=>({id:i.uid,qty:0,done:false,got:0,picked_at:null})));
+  const al=catalog.filter(i=>i.isAlert&&(i.done||i.got));   // アラートは毎回また出す
+  al.forEach(i=>{i.done=false;i.got=0;});
+  if(al.length) sbBulkSet(al.map(i=>({id:i.uid,done:false,got:0})));
   renderList();renderHist();haptic('ok');toast(`${done.length}こ をアーカイブしました 🎉`);
 }
 function loadKeep(){
@@ -868,7 +872,7 @@ function renumber(){
 }
 function dedupeItems(){
   const byName=new Map();
-  for(const it of catalog){ const k=it.name.trim(); if(!byName.has(k))byName.set(k,[]); byName.get(k).push(it); }
+  for(const it of catalog){ if(it.isAlert)continue; const k=it.name.trim(); if(!byName.has(k))byName.set(k,[]); byName.get(k).push(it); }
   const dups=[...byName.values()].filter(a=>a.length>1);
   if(!dups.length){toast('重複は見つかりませんでした 👍');return;}
   const total=dups.reduce((a,g)=>a+g.length-1,0);
@@ -1018,7 +1022,7 @@ $('#itemSort').addEventListener('change',e=>{itemSort=e.target.value;renderItems
 $('#histSort').addEventListener('change',e=>{histSort=e.target.value;renderHist();});
 
 let _sx=0,_sy=0,_su=null,_btn=null,_lpTimer=null,_lpFired=false;
-function startLongPress(uid){ _lpFired=false; clearTimeout(_lpTimer); _lpTimer=setTimeout(()=>{ _lpFired=true; const it=catalog.find(i=>i.uid===uid); if(it){ haptic('done'); openEdit(it,true); } },1000); }
+function startLongPress(uid){ _lpFired=false; clearTimeout(_lpTimer); _lpTimer=setTimeout(()=>{ _lpFired=true; const it=catalog.find(i=>i.uid===uid); if(it){ haptic('done'); if(it.isAlert) openAlertEdit(it); else openEdit(it,true); } },1000); }
 function cancelLongPress(){ clearTimeout(_lpTimer); }
 $('#editArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.erow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;const b=e.target.closest('[data-act]');_btn=b?b.dataset.act:null;startLongPress(_su);});
 $('#editArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10||Math.abs(e.clientY-_sy)>10)cancelLongPress();});
@@ -1040,6 +1044,7 @@ $('#itemArea').addEventListener('click',e=>{
   if(e.target.closest('.drag'))return;
   const row=e.target.closest('.irow');if(!row)return;
   const it=catalog.find(i=>i.uid===+row.dataset.uid);if(!it)return;
+  if(it.isAlert){ openAlertEdit(it); return; }
   if(e.target.closest('[data-act="keep"]')){
     it.keep=!it.keep;
     it.keepQty=it.keep?(it.keepQty>0?it.keepQty:(it.qty>0?it.qty:1)):0;
@@ -1116,34 +1121,32 @@ $('#qPlus').addEventListener('click',()=>{editQty=Math.min(99,editQty+1);$('#qVa
 $('#typeChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;editType=b.dataset.type;renderTypeChips();});
 $('#zoneChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;editZone=b.dataset.zone;renderZoneChips();});
 
-/* ===== アラート（赤い注意ラベル） ===== */
+/* ===== アラート（赤い注意ラベル＝特別な品目） ===== */
 function renderAZoneChips(){$('#aZoneChips').innerHTML=ZONES.map(z=>{const f=zoneColorOf(z);const on=z.code===aZone;const st=on?`background:${f.ink};border-color:${f.ink};color:#fff;`:`background:${f.bg};border-color:${f.ink};color:${f.ink};`;return `<button class="chip ${on?'on':''}" data-zone="${esc(z.code)}" style="${st}">${esc(z.code)} ${esc(z.label)}</button>`;}).join('');}
-function renderAEnable(){const b=$('#aEnable');b.classList.toggle('on',aEnabled);b.textContent=aEnabled?'★ 表示する':'表示しない';}
 function openAlertEdit(a){
   editingAlert=a||null;
   aZone=a?a.zone:((ZONES[0]&&ZONES[0].code)||'その他');
-  aEnabled=a?a.enabled:true;
-  $('#aText').value=a?a.text:'';
+  $('#aText').value=a?a.name:'';
   $('#aDel').style.display=a?'':'none';
-  renderAZoneChips();renderAEnable();
+  renderAZoneChips();
   $('#alertBg').classList.add('open');$('#alertSheet').classList.add('open');
 }
 function closeAlertEdit(){$('#alertBg').classList.remove('open');$('#alertSheet').classList.remove('open');editingAlert=null;}
 $('#aZoneChips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;aZone=b.dataset.zone;renderAZoneChips();});
-$('#aEnable').addEventListener('click',()=>{aEnabled=!aEnabled;renderAEnable();});
 $('#alertBg').addEventListener('click',closeAlertEdit);
 $('#addAlertBtn').addEventListener('click',()=>openAlertEdit(null));
-$('#itemArea').addEventListener('click',e=>{const bar=e.target.closest('.alertbar');if(!bar)return;const a=alerts.find(x=>x.uid===Number(bar.dataset.aid));if(a)openAlertEdit(a);});
-$('#aDel').addEventListener('click',()=>{if(!editingAlert)return;const uid=editingAlert.uid;alerts=alerts.filter(x=>x.uid!==uid);sbAlertDelete(uid);closeAlertEdit();renderActive();toast('アラートを削除しました');});
+$('#aDel').addEventListener('click',()=>{if(!editingAlert)return;const uid=editingAlert.uid;catalog=catalog.filter(i=>i.uid!==uid);sbItemDelete(uid);closeAlertEdit();renderActive();toast('アラートを削除しました');});
 $('#aSave').addEventListener('click',async()=>{
   const text=$('#aText').value.trim();
   if(!text){toast('文言を入れてね');return;}
   if(editingAlert){
-    editingAlert.text=text;editingAlert.zone=aZone;editingAlert.enabled=aEnabled;sbAlertUpdate(editingAlert);
+    editingAlert.name=text;editingAlert.zone=aZone;
+    sbItemUpdate(editingAlert);
   }else{
-    const a={uid:null,text,zone:aZone,enabled:aEnabled};
-    if(SB.ready()){const id=await sbAlertInsert(a);if(id==null){toast('保存に失敗しました');return;}a.uid=id;}else{a.uid=Date.now();}
-    alerts.push(a);
+    const maxId=catalog.reduce((a,b)=>Math.max(a,b.id),0);
+    const a={uid:null,id:maxId+1,name:text,type:'アラート',zone:aZone,price:0,qty:1,done:false,keep:false,keepQty:0,hidden:false,got:0,picked_at:null,isAlert:true};
+    if(SB.ready()){const id=await sbItemInsert(a);if(id==null){toast('保存に失敗しました');return;}a.uid=id;}else{a.uid=uidSeq++;}
+    catalog.push(a);
   }
   closeAlertEdit();renderActive();toast('アラートを保存しました');
 });
