@@ -560,7 +560,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-053422';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-053707';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1352,10 +1352,22 @@ $('#editSearch').addEventListener('input',e=>{editFilter=e.target.value.trim().t
 $('#editSearchClr').addEventListener('click',()=>{editFilter='';$('#editSearch').value='';renderEdit();});
 $('#itemSearch').addEventListener('input',e=>{itemFilter=e.target.value.trim().toLowerCase();renderItems();});
 $('#itemSearchClr').addEventListener('click',()=>{itemFilter='';$('#itemSearch').value='';renderItems();});
-let _lastJz=null;
+let _lastJz=null,_findTimer=null;
+function armFind(find){                                       // バー内に5秒タッチが無ければ自動でたたむ
+  clearTimeout(_findTimer);
+  if(!find||!find.classList.contains('open'))return;
+  _findTimer=setTimeout(()=>{
+    if(!find.classList.contains('open'))return;
+    if(find.contains(document.activeElement)){ armFind(find); return; }   // 入力中はたたまない
+    const ed=find.id==='editFind';
+    if((ed&&editFilter)||(!ed&&itemFilter)){ armFind(find); return; }      // 検索中はたたまない
+    find.classList.remove('open'); _lastJz=null; layoutSticky();
+  },5000);
+}
+['#editFind','#itemFind'].forEach(sel=>{ const f=$(sel); if(f)['pointerdown','input'].forEach(ev=>f.addEventListener(ev,()=>armFind(f))); });  // バー内タッチで延長
 function onJumpChip(areaSel,findSel,code){
-  if(code===_lastJz){ $(findSel).classList.remove('open'); _lastJz=null; layoutSticky(); }   // 同じチップ再タップ＝畳む
-  else { jumpToZone(areaSel,code); _lastJz=code; }                                            // 移動して開いたまま
+  if(code===_lastJz){ $(findSel).classList.remove('open'); _lastJz=null; clearTimeout(_findTimer); layoutSticky(); }   // 同じチップ再タップ＝畳む
+  else { jumpToZone(areaSel,code); _lastJz=code; armFind($(findSel)); }                                               // 移動して開いたまま
 }
 $('#editJump').addEventListener('click',e=>{const b=e.target.closest('.jchip');if(b)onJumpChip('#editArea','#editFind',b.dataset.jz);});
 $('#itemJump').addEventListener('click',e=>{const b=e.target.closest('.jchip');if(b)onJumpChip('#itemArea','#itemFind',b.dataset.jz);});
@@ -1365,11 +1377,11 @@ document.querySelectorAll('.minicur').forEach(b=>b.addEventListener('click',()=>
   const find=$(b.dataset.ft==='edit'?'#editFind':'#itemFind');
   const willOpen=!find.classList.contains('open');
   find.classList.toggle('open',willOpen); _lastJz=null; layoutSticky();
-  if(willOpen)requestAnimationFrame(()=>updateJumpCur(true));
+  if(willOpen){ requestAnimationFrame(()=>updateJumpCur(true)); armFind(find); } else clearTimeout(_findTimer);
 }));
 document.querySelectorAll('.fclose').forEach(b=>b.addEventListener('click',()=>{
   const ed=b.dataset.ft==='edit';
-  const find=$(ed?'#editFind':'#itemFind'); find.classList.remove('open'); _lastJz=null;
+  const find=$(ed?'#editFind':'#itemFind'); find.classList.remove('open'); _lastJz=null; clearTimeout(_findTimer);
   if(ed&&editFilter){editFilter='';$('#editSearch').value='';renderEdit();}
   if(!ed&&itemFilter){itemFilter='';$('#itemSearch').value='';renderItems();}
   layoutSticky();
