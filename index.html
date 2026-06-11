@@ -567,7 +567,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-060320';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-060529';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1209,11 +1209,11 @@ function renumber(){
 }
 function dedupeItems(){
   const byName=new Map();
-  for(const it of catalog){ if(it.isAlert)continue; const k=it.name.trim(); if(!byName.has(k))byName.set(k,[]); byName.get(k).push(it); }
+  for(const it of catalog){ if(it.isAlert)continue; const k=it.name.trim()+'\u0000'+(it.product||'').trim(); if(!byName.has(k))byName.set(k,[]); byName.get(k).push(it); }
   const dups=[...byName.values()].filter(a=>a.length>1);
   if(!dups.length){toast('重複は見つかりませんでした 👍');return;}
   const total=dups.reduce((a,g)=>a+g.length-1,0);
-  askConfirm('重複した品目を整理',`同じ名前が ${dups.length}種・計 ${total}件 だぶっています。各1件にまとめます（個数は多い方を残す）`,()=>{
+  askConfirm('重複した品目を整理',`品名＋商品名が同じものが ${dups.length}種・計 ${total}件 だぶっています。各1件にまとめます（個数は多い方を残す）`,()=>{
     const removeUids=[],kept=[];
     for(const g of dups){
       g.sort((a,b)=>(a.uid||0)-(b.uid||0));
