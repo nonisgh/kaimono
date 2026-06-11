@@ -208,7 +208,7 @@
   .srow-photo:active{filter:brightness(.93);}
   body.fs .srow-photo{margin:-18px -16px -18px 0;}
   /* 検索＋目次バー（編集・品目） */
-  .findbar{position:fixed;left:14px;right:14px;bottom:calc(30px + env(safe-area-inset-bottom));max-width:492px;margin:0 auto;z-index:49;background:rgba(251,246,236,.80);backdrop-filter:blur(12px) saturate(1.2);-webkit-backdrop-filter:blur(12px) saturate(1.2);border:1.5px solid rgba(231,221,199,.9);border-radius:18px;box-shadow:0 8px 26px -8px rgba(80,55,25,.45);padding:9px 11px;display:flex;flex-direction:column;gap:7px;}
+  .findbar{position:fixed;left:14px;right:14px;bottom:calc(30px + env(safe-area-inset-bottom));max-width:492px;margin:0 auto;z-index:49;background:rgba(251,246,236,.88);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);border:1.5px solid rgba(231,221,199,.9);border-radius:18px;box-shadow:0 8px 26px -8px rgba(80,55,25,.45);padding:9px 11px;display:flex;flex-direction:column;gap:7px;}
   #editTab,#itemTab{padding-bottom:calc(124px + env(safe-area-inset-bottom));}
   .searchrow{display:flex;align-items:center;gap:7px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:0 11px;}
   .searchrow .si{flex:none;font-size:14px;opacity:.6;}
@@ -591,7 +591,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-073518';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-074327';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -814,7 +814,10 @@ function incoming(){ if(Date.now()-lastWrite>1500) syncPulseDown(); }
 
 /* ===== ローカル保存 & 書き込みキュー（テンポ優先） ===== */
 const LS={items:'kaimono.items',zones:'kaimono.zones',hist:'kaimono.history',bm:'kaimono.bookmarks'};
-function saveLocal(){ try{ localStorage.setItem(LS.items,JSON.stringify(catalog)); localStorage.setItem(LS.zones,JSON.stringify(ZONES)); localStorage.setItem(LS.hist,JSON.stringify(history)); localStorage.setItem(LS.bm,JSON.stringify(bookmarks)); }catch(e){} }
+let _saveT=null;
+function _doSaveLocal(){ try{ localStorage.setItem(LS.items,JSON.stringify(catalog)); localStorage.setItem(LS.zones,JSON.stringify(ZONES)); localStorage.setItem(LS.hist,JSON.stringify(history)); localStorage.setItem(LS.bm,JSON.stringify(bookmarks)); }catch(e){} }
+function saveLocal(){ if(_saveT)return; _saveT=setTimeout(()=>{ _saveT=null; _doSaveLocal(); },500); }   // まとめ書き＝操作の連打中はブロックしない
+function saveLocalNow(){ if(_saveT){clearTimeout(_saveT);_saveT=null;} _doSaveLocal(); }
 function loadLocal(){ try{
   const i=localStorage.getItem(LS.items); if(i){const a=JSON.parse(i); if(Array.isArray(a)&&a.length)catalog=a;}
   const z=localStorage.getItem(LS.zones); if(z){const a=JSON.parse(z); if(Array.isArray(a)&&a.length){ZONES=a;recomputeZones();}}
@@ -1163,6 +1166,7 @@ function updateJumpCur(slide){                                // 現在地チッ
     if(bar.scrollWidth>bar.clientWidth+4) bar.scrollTo({left:bar.scrollLeft+cl.left-bl.left-(bl.width-cl.width)/2,behavior:'smooth'}); }
 }
 window.addEventListener('scroll',()=>{
+  if(activeTab!=='edit'&&activeTab!=='item')return;           // ジャンプバーがあるタブだけ処理＝他タブのスクロールを軽く
   if(!_jzTick)_jzTick=requestAnimationFrame(()=>{_jzTick=null;updateJumpCur(false);});
   clearTimeout(_jzIdle);_jzIdle=setTimeout(()=>updateJumpCur(true),140);   // 止まってからスライド
 },{passive:true});
@@ -1328,15 +1332,7 @@ function applyFindHide(){ const s=$('#findHide'),v=$('#findHideVal'); if(s)s.val
 function applyBadgeAlpha(){ document.documentElement.style.setProperty('--badge-a',(badgeAlpha/100).toFixed(3)); const s=$('#badgeAlpha'),v=$('#badgeAlphaVal'); if(s)s.value=badgeAlpha; if(v)v.textContent=badgeAlpha+'%'; }
 function haptic(kind){
   if(!hapticOn)return;
-  if(navigator.vibrate){ navigator.vibrate(kind==='ok'?[10,35,10]:kind==='done'?16:7); return; }
-  try{ // iOS Safari(18〜26.4)：switch+labelの裏ワザ。26.5以降はAppleが塞いだため不可
-    const l=document.createElement('label');const c=document.createElement('input');
-    c.type='checkbox';c.setAttribute('switch','');l.appendChild(c);
-    l.style.cssText='position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0.001;pointer-events:none;z-index:-1;';
-    document.body.appendChild(l);
-    l.click();
-    setTimeout(()=>l.remove(),80);
-  }catch(e){}
+  if(navigator.vibrate){ navigator.vibrate(kind==='ok'?[10,35,10]:kind==='done'?16:7); }   // Android等のみ（iOSは未対応＝何もしない）
 }
 function renderHapticBtn(){const b=$('#hapticToggle');if(!b)return;b.classList.toggle('on',hapticOn);b.textContent=hapticOn?'📳 タップ振動：ON':'タップ振動：OFF';}
 
@@ -1821,7 +1817,7 @@ $('#imgDel').addEventListener('click',()=>{
   });
 });
 document.addEventListener('visibilitychange',()=>{ if(document.hidden){flushWrites();saveLocal();} else refresh(); });
-window.addEventListener('pagehide',()=>{flushWrites();saveLocal();});
+window.addEventListener('pagehide',()=>{flushWrites();saveLocalNow();});
 window.addEventListener('focus',refresh);
 $('#saveBtn').addEventListener('click',async()=>{
   if(!editing)return;
