@@ -249,6 +249,9 @@
   .paintlabel .plname{display:block;font-weight:900;font-size:17px;}
   .paintlabel .plcode{display:block;font-weight:700;font-size:11px;opacity:.7;margin-top:1px;}
   .grp{scroll-margin-top:var(--stick,150px);}
+  .cfgseg{display:flex;gap:6px;}
+  .cfgseg button{flex:1;padding:9px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);font-weight:800;font-size:13px;color:var(--ink-soft);}
+  .cfgseg button.on{background:var(--green);color:#fff;border-color:var(--green-d);}
   /* 品目行：写真ありの目印 */
   .hasimg{flex:none;font-size:12px;opacity:.6;margin:0 1px;}
 
@@ -559,6 +562,14 @@
       <input id="findHide" type="range" min="0" max="7" step="1" style="width:100%;">
       <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">チップを選んで指を離したあと、移動バーをたたむまでの時間。「離した瞬間」＝選んだら即たたむ／「たたまない」＝開いたまま</div>
     </div>
+    <div style="margin-top:14px;">
+      <label style="display:block;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px;">🎯 移動先の表示位置 <span id="jumpAnchorVal" style="color:var(--ink-soft);font-weight:700;font-size:12px;"></span></label>
+      <div class="cfgseg" id="jumpAnchorSeg">
+        <button data-ja="top">上部</button>
+        <button data-ja="mid">やや下</button>
+      </div>
+      <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">チップで移動したとき、その売り場の先頭を画面のどこに表示するか。「やや下」＝少し下げて見やすく</div>
+    </div>
   </div>
   <div class="sheetbtns" style="margin-top:12px;"><button class="b-done" id="zoneDone">とじる</button></div>
 </div>
@@ -608,7 +619,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-194750';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-195657';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1006,7 +1017,7 @@ function subscribe(){
 async function init(){
   if(DEMO){ document.body.classList.add('demo'); const sub=document.querySelector('header .sub'); if(sub)sub.textContent='🧪 見本モード（保存はこの端末だけ）'; const ic=document.querySelector('#syncDot .ic'); if(ic)ic.textContent='🧪'; }
   if(!DEMO) initDB();                                  // 見本モードではDBにつながない
-  applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さを反映
+  applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide(); applyJumpAnchor();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さを反映
   loadLocal(); renderActive(); preloadImages();      // まずローカルで即表示＋写真先読み
   if(SB.ready()){
     try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); }
@@ -1268,9 +1279,13 @@ function jumpToZone(areaSel,code){
   const sel='.grp[data-zone="'+((window.CSS&&CSS.escape)?CSS.escape(code):code)+'"]';
   const el=area.querySelector(sel); if(!el)return;
   _jumpUntil=Date.now()+700;                 // この間は通過ハイライトを出さない
-  el.scrollIntoView({behavior:'smooth',block:'start'});
+  const y=el.getBoundingClientRect().top+window.scrollY-anchorOffset();   // やや下に来るよう手動スクロール
+  window.scrollTo({top:Math.max(0,y),behavior:'smooth'});
   setCur(code);                              // 目的地を即ハイライト
 }
+let jumpAnchor=localStorage.getItem('kaimono.jumpanchor')||'mid';   // top=上部 / mid=やや下（既定）
+function anchorOffset(){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150; return stick + (jumpAnchor==='mid'?Math.round(window.innerHeight*0.30):0); }
+function applyJumpAnchor(){ document.querySelectorAll('#jumpAnchorSeg button').forEach(b=>b.classList.toggle('on',b.dataset.ja===jumpAnchor)); const v=$('#jumpAnchorVal'); if(v)v.textContent=(jumpAnchor==='mid'?'やや下':'上部'); }
 function setCur(code){ const c=curArea(); if(!c)return; const bar=$(c.bar); if(bar)bar.querySelectorAll('.jchip').forEach(ch=>ch.classList.toggle('cur',ch.dataset.jz===code)); updateMiniCur(code); }
 function layoutSticky(){
   const hd=document.querySelector('header'); const h=hd?hd.offsetHeight:46;
@@ -1293,7 +1308,7 @@ function currentZone(){                                       // 画面上部に
   const grps=document.querySelectorAll(c.area+' .grp[data-zone]');
   if(!grps.length)return null;
   if(window.innerHeight+window.scrollY>=document.documentElement.scrollHeight-6) return grps[grps.length-1].dataset.zone;  // 最下部＝最後の売り場
-  const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150;
+  const stick=anchorOffset();
   let cur=null;
   for(const g of grps){ const r=g.getBoundingClientRect(); if(r.top<=stick+8)cur=g.dataset.zone; else break; }
   if(!cur)cur=grps[0].dataset.zone;
@@ -1553,7 +1568,7 @@ function setZoneCode(i,newCode){
   recomputeZones();renderZoneAdmin();
 }
 let zoneSnap=new Map();
-function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();renderHapticBtn();applyBadgeAlpha();applyFindHide();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
+function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();renderHapticBtn();applyBadgeAlpha();applyFindHide();applyJumpAnchor();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
 async function closeZoneAdmin(){
   $('#zoneBg').classList.remove('open');$('#zoneSheet').classList.remove('open');recomputeZones();
   if(SB.ready()){
@@ -2013,6 +2028,7 @@ $('#zoneDone').addEventListener('click',closeZoneAdmin);
 $('#hapticToggle').addEventListener('click',()=>{hapticOn=!hapticOn;localStorage.setItem('kaimono.haptic',hapticOn?'1':'0');renderHapticBtn();if(hapticOn)haptic('done');});
 $('#badgeAlpha').addEventListener('input',e=>{badgeAlpha=parseInt(e.target.value,10)||0;localStorage.setItem('kaimono.badgealpha',String(badgeAlpha));applyBadgeAlpha();});
 $('#findHide').addEventListener('input',e=>{const i=parseInt(e.target.value,10)||0;findHideSec=(HIDE_OPTS[i]||HIDE_OPTS[0]).v;localStorage.setItem('kaimono.findhide',String(findHideSec));applyFindHide();});
+document.querySelectorAll('#jumpAnchorSeg button').forEach(b=>b.addEventListener('click',()=>{jumpAnchor=b.dataset.ja;localStorage.setItem('kaimono.jumpanchor',jumpAnchor);applyJumpAnchor();}));
 $('#zoneBg').addEventListener('click',closeZoneAdmin);
 $('#zAddBtn').addEventListener('click',()=>{
   const code=$('#zAddCode').value.trim(),label=$('#zAddLabel').value.trim();
