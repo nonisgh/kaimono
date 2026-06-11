@@ -181,6 +181,9 @@
   .daygroup{margin-top:16px;}
   .dayhead{font-size:14px;font-weight:900;color:var(--green-d);margin:0 2px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
   .histdel{border:1.5px solid #e6b8c2;background:#fff;color:var(--hot);font-family:inherit;font-weight:800;font-size:11px;padding:5px 10px;border-radius:999px;cursor:pointer;}
+  .dayacts{display:flex;align-items:center;gap:6px;flex:none;}
+  .histimp{border:1.5px solid #cfe0c4;background:var(--green-soft);color:var(--green-d);font-family:inherit;font-weight:800;font-size:11px;padding:5px 11px;border-radius:999px;cursor:pointer;}
+  .histimp:active{transform:scale(.95);}
   .hitem{display:flex;align-items:center;gap:10px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:10px 13px;margin-bottom:6px;}
   .hitem .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:none;}
   .hitem .hn{font-size:15px;font-weight:500;flex:1;}
@@ -530,6 +533,18 @@
   <div class="sheetbtns"><button class="b-del" id="confNo">やめる</button><button class="b-save" id="confYes">OK</button></div>
 </div>
 
+<div class="sheetbg" id="impBg"></div>
+<div class="sheet" id="impSheet" style="text-align:center;">
+  <div class="grab"></div>
+  <h3>編集に取り込む</h3>
+  <p id="impMsg" style="font-size:14px;color:var(--ink-soft);margin:0 0 16px;line-height:1.6;">この買い物の内容を「編集（買うもの）」に入れます。</p>
+  <div class="sheetbtns" style="flex-direction:column;gap:9px;">
+    <button class="b-save" id="impOver">🔁 上書き（今の内容を消して入れ替え）</button>
+    <button class="b-save" id="impAdd">➕ 追加（今の内容に足す）</button>
+    <button class="b-del" id="impCancel">やめる</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- 画像ポップアップ -->
@@ -541,7 +556,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-010236';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-011720';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -990,7 +1005,7 @@ function renderHist(){ saveLocal();
   const byName=new Map(catalog.map(i=>[i.name,i.zone]));
   let html='';
   for(const d of history){
-    html+=`<div class="daygroup"><div class="dayhead"><span>${esc(d.date)}</span><button class="histdel" data-bid="${d.bid==null?'':d.bid}">✕ 消す</button></div>`;
+    html+=`<div class="daygroup"><div class="dayhead"><span>${esc(d.date)}</span><div class="dayacts"><button class="histimp" data-bid="${d.bid==null?'':d.bid}">↩︎ 取込</button><button class="histdel" data-bid="${d.bid==null?'':d.bid}">✕ 消す</button></div></div>`;
     const items=d.list.map(it=>{const base=it.name.replace(/\s*×\d+$/,'');const zone=it.zone||(it.itemId!=null&&byId.get(Number(it.itemId)))||byName.get(base)||'その他';return {it,zone};});
     if(histSort==='name')items.sort((a,b)=>a.it.name.localeCompare(b.it.name,'ja'));
     else if(histSort==='zone')items.sort((a,b)=>(zoneIdx[a.zone]??999)-(zoneIdx[b.zone]??999));
@@ -1146,6 +1161,33 @@ async function importRecent(){
   renderEdit();toast(`前回の買い物から ${changed.length}品 を取り込みました`);
 }
 
+let impBid=null;
+function openImport(bid){ impBid=bid; $('#impBg').classList.add('open'); $('#impSheet').classList.add('open'); }
+function closeImport(){ $('#impBg').classList.remove('open'); $('#impSheet').classList.remove('open'); impBid=null; }
+async function applyHistoryImport(mode){
+  const bid=impBid; closeImport();
+  if(bid==null){toast('取り込めませんでした');return;}
+  if(!SB.ready()){toast('同期ONのときに使えます');return;}
+  const {data,error}=await SB.client.from('purchase_log').select('name,qty,item_id').eq('batch_id',bid);
+  if(error){console.error(error);toast('取込に失敗');return;}
+  if(!data||!data.length){toast('この履歴は空でした');return;}
+  const byId=new Map(catalog.map(i=>[i.uid,i])),byName=new Map(catalog.map(i=>[i.name,i]));
+  const changed=[],seen=new Set();
+  const mark=it=>{ if(!seen.has(it.uid)){seen.add(it.uid);changed.push(it);} };
+  if(mode==='over'){ for(const it of catalog){ if(it.isAlert)continue; if(it.qty||it.got||it.done){ it.qty=0;it.got=0;it.done=false;it.picked_at=null; mark(it); } } }
+  for(const r of data){
+    const base=(r.name||'').replace(/\s*×\d+$/,'');
+    const it=(r.item_id!=null&&byId.get(Number(r.item_id)))||byName.get(r.name)||byName.get(base);
+    if(!it||it.isAlert)continue;
+    const add=r.qty||1;
+    it.qty=mode==='add'?Math.min(99,(it.qty||0)+add):add;
+    it.got=0;it.done=false;it.picked_at=null; mark(it);
+  }
+  sbBulkSet(changed.map(i=>({id:i.uid,qty:i.qty,got:i.got,done:i.done,picked_at:i.picked_at})));
+  saveLocal();
+  document.querySelector('.tabs [data-tab="edit"]').click();
+  toast(mode==='over'?`上書きで取り込みました`:`追加で取り込みました`);
+}
 function renumber(){
   sortItems(catalog,'zone').forEach((it,i)=>it.id=i+1);
   sbBulkSet(catalog.map(i=>({id:i.uid,item_no:i.id})));renderItems();toast('売り場順に番号を振り直しました');
@@ -1457,6 +1499,8 @@ $('#revUp').addEventListener('click',()=>{revPad=Math.min(52,revPad+4);localStor
 $('#revDown').addEventListener('click',()=>{revPad=Math.max(16,revPad-4);localStorage.setItem('kaimono.revpad',revPad);applyRevPad();scrollBottom();});
 $('#revBtn').addEventListener('click',()=>{revMode=!revMode;localStorage.setItem('kaimono.rev',revMode?'1':'0');applyReverse();renderList();if(revMode)scrollBottom();});
 $('#histArea').addEventListener('click',e=>{
+  const imp=e.target.closest('.histimp');
+  if(imp){ const bid=imp.dataset.bid; openImport(bid===''?null:(isNaN(+bid)?bid:+bid)); return; }
   const b=e.target.closest('.histdel');if(!b)return;
   const bid=b.dataset.bid;
   askConfirm('この履歴を消す','このアーカイブ1件を削除します（元に戻せません）',()=>{
@@ -1465,6 +1509,10 @@ $('#histArea').addEventListener('click',e=>{
     renderHist();toast('履歴を消しました');
   });
 });
+$('#impCancel').addEventListener('click',closeImport);
+$('#impBg').addEventListener('click',closeImport);
+$('#impOver').addEventListener('click',()=>applyHistoryImport('over'));
+$('#impAdd').addEventListener('click',()=>applyHistoryImport('add'));
 
 
 /* item sheet */
