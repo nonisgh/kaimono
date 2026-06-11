@@ -619,7 +619,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-205040';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-205335';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1285,10 +1285,12 @@ function jumpToZone(areaSel,code){
   setCur(code);                              // 目的地を即ハイライト
   afterScroll(()=>{ const b=el.querySelector('.grphead .badge'); if(b&&b.animate){ b.style.transformOrigin='center'; b.animate([{transform:'scale(1)'},{transform:'scale(1.36)',offset:.25},{transform:'scale(.88)',offset:.55},{transform:'scale(1.12)',offset:.78},{transform:'scale(1)'}],{duration:540,easing:'cubic-bezier(.34,1.56,.64,1)'}); } });  // 止まってからボヨン
 }
-function afterScroll(cb){                     // スムーススクロールが止まったら実行（最大~1.6s）
-  let last=window.scrollY,still=0,tries=0;
-  const tick=()=>{ const y=window.scrollY; if(Math.abs(y-last)<1.5)still++;else still=0; last=y; tries++;
-    if((tries>=8&&still>=3)||tries>100){ cb(); return; } requestAnimationFrame(tick); };
+function afterScroll(cb){                     // 動いて減速し“止まりかけ”た所＝止まる約0.1s前で実行（最大~1.6s）
+  let last=window.scrollY,fast=false,tries=0;
+  const tick=()=>{ const y=window.scrollY,d=Math.abs(y-last); last=y; tries++;
+    if(d>8)fast=true;
+    if((fast&&d<=5)||(tries>=6&&d<1.5)||tries>100){ cb(); return; }
+    requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
 }
 let jumpAnchor=localStorage.getItem('kaimono.jumpanchor')||'mid';   // top=上部 / mid=やや下（既定）
