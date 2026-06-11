@@ -225,7 +225,7 @@
   .searchrow .clr{flex:none;border:none;background:transparent;font-size:15px;color:var(--ink-soft);cursor:pointer;padding:6px;}
   .jumprow{display:flex;align-items:center;gap:6px;}
   .minirow{display:flex;align-items:center;gap:6px;justify-content:space-between;}
-  .minicur{flex:0 1 auto;min-width:0;max-width:62%;border-radius:999px;padding:9px 26px;font-family:inherit;font-weight:800;font-size:14px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;text-align:center;}
+  .minicur{flex:0 1 auto;min-width:150px;max-width:62%;border-radius:999px;padding:9px 26px;font-family:inherit;font-weight:800;font-size:14px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;text-align:center;}
   .minicur:active{transform:scale(.97);}
   .findbar .findfull{display:none;flex-direction:column;gap:7px;}
   .findbar.collapsing .findfull{animation:findbye .2s ease-in forwards;}
@@ -567,6 +567,7 @@
       <div class="cfgseg" id="jumpAnchorSeg">
         <button data-ja="top">上部</button>
         <button data-ja="mid">やや下</button>
+        <button data-ja="center">中央</button>
       </div>
       <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">チップで移動したとき、その売り場の先頭を画面のどこに表示するか。「やや下」＝少し下げて見やすく</div>
     </div>
@@ -619,7 +620,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-205335';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-210518';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1294,8 +1295,8 @@ function afterScroll(cb){                     // 動いて減速し“止まり�
   requestAnimationFrame(tick);
 }
 let jumpAnchor=localStorage.getItem('kaimono.jumpanchor')||'mid';   // top=上部 / mid=やや下（既定）
-function anchorOffset(){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150; return stick + (jumpAnchor==='mid'?Math.round(window.innerHeight*0.12):0); }
-function applyJumpAnchor(){ document.querySelectorAll('#jumpAnchorSeg button').forEach(b=>b.classList.toggle('on',b.dataset.ja===jumpAnchor)); const v=$('#jumpAnchorVal'); if(v)v.textContent=(jumpAnchor==='mid'?'やや下':'上部'); }
+function anchorOffset(){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150; if(jumpAnchor==='center')return Math.round(window.innerHeight*0.5); return stick + (jumpAnchor==='mid'?Math.round(window.innerHeight*0.12):0); }
+function applyJumpAnchor(){ document.querySelectorAll('#jumpAnchorSeg button').forEach(b=>b.classList.toggle('on',b.dataset.ja===jumpAnchor)); const v=$('#jumpAnchorVal'); if(v)v.textContent=(jumpAnchor==='center'?'中央':jumpAnchor==='mid'?'やや下':'上部'); }
 function setCur(code){ const c=curArea(); if(!c)return; const bar=$(c.bar); if(bar)bar.querySelectorAll('.jchip').forEach(ch=>ch.classList.toggle('cur',ch.dataset.jz===code)); updateMiniCur(code); }
 function layoutSticky(){
   const hd=document.querySelector('header'); const h=hd?hd.offsetHeight:46;
