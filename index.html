@@ -211,6 +211,8 @@
   .minicur{flex:0 1 auto;min-width:0;max-width:44%;border-radius:999px;padding:9px 14px;font-family:inherit;font-weight:800;font-size:14px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;text-align:center;}
   .minicur:active{transform:scale(.97);}
   .findbar .findfull{display:none;flex-direction:column;gap:7px;}
+  .findbar.collapsing .findfull{animation:findbye .2s ease-in forwards;}
+  @keyframes findbye{ to{ transform:translateX(40px); opacity:0; } }
   .findbar.open .minirow{display:none;}
   .findbar.open .findfull{display:flex;}
   .fclose{border:none;background:transparent;font-family:inherit;font-weight:800;font-size:12px;color:var(--ink-soft);cursor:pointer;padding:2px;align-self:center;}
@@ -511,6 +513,11 @@
       <input id="badgeAlpha" type="range" min="0" max="30" step="1" style="width:100%;">
       <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">リスト・編集の📷バッジを売り場の色になじませる度合い</div>
     </div>
+    <div style="margin-top:14px;">
+      <label style="display:block;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px;">⏱ 移動バーが自動でたたむまで <span id="findHideVal" style="color:var(--ink-soft);font-weight:700;font-size:12px;"></span></label>
+      <input id="findHide" type="range" min="0" max="15" step="1" style="width:100%;">
+      <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">編集・品目の移動バーを開いたまま放置したとき、何秒でたたむか（0＝たたまない）</div>
+    </div>
   </div>
   <div class="sheetbtns" style="margin-top:12px;"><button class="b-done" id="zoneDone">とじる</button></div>
 </div>
@@ -560,7 +567,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-053707';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-060320';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -827,7 +834,7 @@ function subscribe(){
 }
 async function init(){
   initDB();
-  applyReverse(); applyRevPad(); applyBadgeAlpha();   // 保存済みのリバース設定・バッジ濃さを反映
+  applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide();   // 保存済みのリバース設定・バッジ濃さを反映
   loadLocal(); renderActive(); preloadImages();      // まずローカルで即表示＋写真先読み
   if(SB.ready()){
     try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); }
@@ -1247,6 +1254,8 @@ function closeImg(){ $('#imgPop').classList.remove('open'); }
 $('#imgPop').addEventListener('click',closeImg);
 let hapticOn=(localStorage.getItem('kaimono.haptic')??'1')==='1';
 let badgeAlpha=parseInt(localStorage.getItem('kaimono.badgealpha')??'8',10);
+let findHideSec=parseInt(localStorage.getItem('kaimono.findhide')??'5',10);
+function applyFindHide(){ const s=$('#findHide'),v=$('#findHideVal'); if(s)s.value=findHideSec; if(v)v.textContent=findHideSec>0?findHideSec+'秒':'たたまない'; }
 function applyBadgeAlpha(){ document.documentElement.style.setProperty('--badge-a',(badgeAlpha/100).toFixed(3)); const s=$('#badgeAlpha'),v=$('#badgeAlphaVal'); if(s)s.value=badgeAlpha; if(v)v.textContent=badgeAlpha+'%'; }
 function haptic(kind){
   if(!hapticOn)return;
@@ -1332,7 +1341,7 @@ function setZoneCode(i,newCode){
   recomputeZones();renderZoneAdmin();
 }
 let zoneSnap=new Map();
-function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();renderHapticBtn();applyBadgeAlpha();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
+function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();renderHapticBtn();applyBadgeAlpha();applyFindHide();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
 async function closeZoneAdmin(){
   $('#zoneBg').classList.remove('open');$('#zoneSheet').classList.remove('open');recomputeZones();
   if(SB.ready()){
@@ -1353,16 +1362,17 @@ $('#editSearchClr').addEventListener('click',()=>{editFilter='';$('#editSearch')
 $('#itemSearch').addEventListener('input',e=>{itemFilter=e.target.value.trim().toLowerCase();renderItems();});
 $('#itemSearchClr').addEventListener('click',()=>{itemFilter='';$('#itemSearch').value='';renderItems();});
 let _lastJz=null,_findTimer=null;
-function armFind(find){                                       // バー内に5秒タッチが無ければ自動でたたむ
+function armFind(find){                                       // バー内にN秒タッチが無ければ自動でたたむ
   clearTimeout(_findTimer);
-  if(!find||!find.classList.contains('open'))return;
+  if(!find||!find.classList.contains('open')||findHideSec<=0)return;   // 0＝たたまない
   _findTimer=setTimeout(()=>{
     if(!find.classList.contains('open'))return;
     if(find.contains(document.activeElement)){ armFind(find); return; }   // 入力中はたたまない
     const ed=find.id==='editFind';
     if((ed&&editFilter)||(!ed&&itemFilter)){ armFind(find); return; }      // 検索中はたたまない
-    find.classList.remove('open'); _lastJz=null; layoutSticky();
-  },5000);
+    find.classList.add('collapsing');                                     // ｻｯと消えるアニメ（自動時だけ）
+    setTimeout(()=>{ find.classList.remove('collapsing','open'); _lastJz=null; layoutSticky(); },220);
+  },findHideSec*1000);
 }
 ['#editFind','#itemFind'].forEach(sel=>{ const f=$(sel); if(f)['pointerdown','input'].forEach(ev=>f.addEventListener(ev,()=>armFind(f))); });  // バー内タッチで延長
 function onJumpChip(areaSel,findSel,code){
@@ -1706,6 +1716,7 @@ $('#gearBtn').addEventListener('click',openZoneAdmin);
 $('#zoneDone').addEventListener('click',closeZoneAdmin);
 $('#hapticToggle').addEventListener('click',()=>{hapticOn=!hapticOn;localStorage.setItem('kaimono.haptic',hapticOn?'1':'0');renderHapticBtn();if(hapticOn)haptic('done');});
 $('#badgeAlpha').addEventListener('input',e=>{badgeAlpha=parseInt(e.target.value,10)||0;localStorage.setItem('kaimono.badgealpha',String(badgeAlpha));applyBadgeAlpha();});
+$('#findHide').addEventListener('input',e=>{findHideSec=parseInt(e.target.value,10)||0;localStorage.setItem('kaimono.findhide',String(findHideSec));applyFindHide();});
 $('#zoneBg').addEventListener('click',closeZoneAdmin);
 $('#zAddBtn').addEventListener('click',()=>{
   const code=$('#zAddCode').value.trim(),label=$('#zAddLabel').value.trim();
