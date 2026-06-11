@@ -242,6 +242,12 @@
   .jchip:active{transform:scale(.93);}
   .jchip.off{opacity:.32;}
   .jchip.sel{outline:2.5px solid var(--green-d);outline-offset:1px;}
+  .paintlabel{position:absolute;left:8px;right:8px;bottom:100%;margin-bottom:10px;z-index:6;display:none;pointer-events:none;
+    background:rgba(40,55,35,.82);color:#fff;border-radius:14px;padding:11px 16px;text-align:center;line-height:1.25;
+    backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);box-shadow:0 8px 22px -8px rgba(0,0,0,.55);}
+  .findbar.painting .paintlabel{display:block;}
+  .paintlabel .plname{display:block;font-weight:900;font-size:17px;}
+  .paintlabel .plcode{display:block;font-weight:700;font-size:11px;opacity:.7;margin-top:1px;}
   .grp{scroll-margin-top:var(--stick,150px);}
   /* 品目行：写真ありの目印 */
   .hasimg{flex:none;font-size:12px;opacity:.6;margin:0 1px;}
@@ -418,6 +424,7 @@
         <div class="jumpbar" id="editJump"></div>
         <button class="fclose" data-ft="edit">たたむ ▾</button>
       </div>
+      <div class="paintlabel"></div>
     </div>
     <div id="editArea"></div>
   </main>
@@ -447,6 +454,7 @@
         <div class="jumpbar" id="itemJump"></div>
         <button class="fclose" data-ft="item">たたむ ▾</button>
       </div>
+      <div class="paintlabel"></div>
     </div>
     <div id="itemArea"></div>
   </main>
@@ -600,7 +608,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-121546';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-122403';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1589,7 +1597,10 @@ function setupPaint(barSel,areaSel,findSel){
       if(d<bd){bd=d;best=c;} });
     return best;
   };
-  const select=chip=>{ if(!chip)return; bar.querySelectorAll('.jchip.sel').forEach(c=>c.classList.remove('sel')); chip.classList.add('sel'); _selZone=chip.dataset.jz; };
+  const select=chip=>{ if(!chip)return; bar.querySelectorAll('.jchip.sel').forEach(c=>c.classList.remove('sel')); chip.classList.add('sel'); _selZone=chip.dataset.jz; showPaintLabel(chip.dataset.jz); };
+  const find=$(findSel), plabel=find?find.querySelector('.paintlabel'):null;
+  function showPaintLabel(code){ if(!plabel)return; const z=zoneOf(code); plabel.innerHTML=z?`<span class="plname">${esc(z.label||z.code)}</span><span class="plcode">${esc(z.code)}</span>`:''; find.classList.add('painting'); }
+  function hidePaintLabel(){ if(find)find.classList.remove('painting'); }
   bar.addEventListener('pointerdown',e=>{
     const chip=e.target.closest('.jchip')||nearestChip(e.clientX,e.clientY); if(!chip)return;
     painting=true; _painting=true; moved=false; select(chip); try{bar.setPointerCapture(e.pointerId);}catch(_){}
@@ -1601,7 +1612,7 @@ function setupPaint(barSel,areaSel,findSel){
     if(chip&&chip.dataset.jz!==_selZone){ moved=true; select(chip); }   // なぞって選択（ペイント）
     armFind($(findSel));                                               // なぞってる間も延長
   });
-  const end=()=>{ if(!painting)return; painting=false; _painting=false;
+  const end=()=>{ if(!painting)return; painting=false; _painting=false; hidePaintLabel();   // 指を離したらバナーを消す
     if(!moved && _selZone===_confirmedZone){                            // 確定中のチップを単タップ＝畳む
       $(findSel).classList.remove('open'); _selZone=null; _confirmedZone=null; clearTimeout(_findTimer); layoutSticky(); return;
     }
@@ -1609,7 +1620,7 @@ function setupPaint(barSel,areaSel,findSel){
     armFind($(findSel));                                               // 離した時点から再カウント
   };
   bar.addEventListener('pointerup',end);
-  bar.addEventListener('pointercancel',()=>{painting=false;_painting=false;armFind($(findSel));});
+  bar.addEventListener('pointercancel',()=>{painting=false;_painting=false;hidePaintLabel();armFind($(findSel));});
 }
 setupPaint('#editJump','#editArea','#editFind');
 setupPaint('#itemJump','#itemArea','#itemFind');
