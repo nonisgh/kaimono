@@ -210,8 +210,8 @@
   .findbar.open .minirow{display:none;}
   .findbar.open .findfull{display:flex;}
   .fclose{border:none;background:transparent;font-family:inherit;font-weight:800;font-size:12px;color:var(--ink-soft);cursor:pointer;padding:2px;align-self:center;}
-  .jumpbar{display:flex;gap:6px;overflow-x:auto;padding:6px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-behavior:smooth;}
-  .jumpbar::-webkit-scrollbar{display:none;}
+  .jumpbar{display:flex;flex-wrap:wrap;gap:6px;max-height:40vh;overflow-y:auto;padding:4px 2px;order:-1;-webkit-overflow-scrolling:touch;}
+  .jumpbar::-webkit-scrollbar{width:5px;} .jumpbar::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
   .jnav{flex:none;width:46px;height:42px;border-radius:13px;border:1.5px solid var(--line);background:var(--card);font-family:inherit;font-weight:800;font-size:17px;color:var(--green-d);cursor:pointer;line-height:1;}
   .jnav:active{transform:scale(.92);background:#ece4d2;}
   .jchip.cur{outline:2.5px solid var(--green-d);outline-offset:1px;}
@@ -556,7 +556,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-012749';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-013354';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1078,7 +1078,7 @@ function updateJumpCur(slide){                                // 現在地チッ
   bar.querySelectorAll('.jchip').forEach(ch=>{const on=ch.dataset.jz===code;ch.classList.toggle('cur',on);if(on)curEl=ch;});
   updateMiniCur(code);
   if(slide&&curEl){ const bl=bar.getBoundingClientRect(),cl=curEl.getBoundingClientRect();
-    bar.scrollTo({left:bar.scrollLeft+cl.left-bl.left-(bl.width-cl.width)/2,behavior:'smooth'}); }
+    if(bar.scrollWidth>bar.clientWidth+4) bar.scrollTo({left:bar.scrollLeft+cl.left-bl.left-(bl.width-cl.width)/2,behavior:'smooth'}); }
 }
 window.addEventListener('scroll',()=>{
   if(!_jzTick)_jzTick=requestAnimationFrame(()=>{_jzTick=null;updateJumpCur(false);});
