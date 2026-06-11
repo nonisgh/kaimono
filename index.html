@@ -166,6 +166,8 @@
   .srow.done .nm{text-decoration:line-through;text-decoration-color:var(--ink-soft);}
 
   .empty{text-align:center;color:var(--ink-soft);padding:46px 20px;font-weight:500;line-height:1.7;}
+  .emptyrec{display:block;width:fit-content;margin:16px auto 2px;border:0;font-family:inherit;font-weight:900;font-size:16px;color:#fff;background:var(--coral);padding:15px 26px;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #b85733, 0 10px 24px -8px rgba(180,87,51,.5);transition:.1s;}
+  .emptyrec:active{transform:translateY(2px);box-shadow:0 2px 0 #b85733;}
   .empty .e{font-size:38px;margin-bottom:8px;}
 
   .footer{position:fixed;left:0;right:0;bottom:0;z-index:50;padding:12px 12px calc(26px + env(safe-area-inset-bottom));background:linear-gradient(0deg,var(--paper) 70%, rgba(251,246,236,0));pointer-events:none;}
@@ -196,7 +198,7 @@
   .srow-photo:active{filter:brightness(.93);}
   body.fs .srow-photo{margin:-18px -16px -18px 0;}
   /* 検索＋目次バー（編集・品目） */
-  .findbar{position:fixed;left:14px;right:14px;bottom:calc(30px + env(safe-area-inset-bottom));max-width:492px;margin:0 auto;z-index:49;background:var(--paper);border:1.5px solid var(--line);border-radius:18px;box-shadow:0 8px 26px -8px rgba(80,55,25,.45);padding:9px 11px;display:flex;flex-direction:column;gap:7px;}
+  .findbar{position:fixed;left:14px;right:14px;bottom:calc(30px + env(safe-area-inset-bottom));max-width:492px;margin:0 auto;z-index:49;background:rgba(251,246,236,.80);backdrop-filter:blur(12px) saturate(1.2);-webkit-backdrop-filter:blur(12px) saturate(1.2);border:1.5px solid rgba(231,221,199,.9);border-radius:18px;box-shadow:0 8px 26px -8px rgba(80,55,25,.45);padding:9px 11px;display:flex;flex-direction:column;gap:7px;}
   #editTab,#itemTab{padding-bottom:calc(124px + env(safe-area-inset-bottom));}
   .searchrow{display:flex;align-items:center;gap:7px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:0 11px;}
   .searchrow .si{flex:none;font-size:14px;opacity:.6;}
@@ -210,7 +212,7 @@
   .findbar.open .minirow{display:none;}
   .findbar.open .findfull{display:flex;}
   .fclose{border:none;background:transparent;font-family:inherit;font-weight:800;font-size:12px;color:var(--ink-soft);cursor:pointer;padding:2px;align-self:center;}
-  .jumpbar{display:flex;flex-wrap:wrap;gap:6px;max-height:40vh;overflow-y:auto;padding:4px 2px;order:-1;-webkit-overflow-scrolling:touch;}
+  .jumpbar{display:flex;flex-wrap:wrap;gap:10px 6px;max-height:40vh;overflow-y:auto;padding:5px 2px;order:-1;-webkit-overflow-scrolling:touch;}
   .jumpbar::-webkit-scrollbar{width:5px;} .jumpbar::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px;}
   .jnav{flex:none;width:46px;height:42px;border-radius:13px;border:1.5px solid var(--line);background:var(--card);font-family:inherit;font-weight:800;font-size:17px;color:var(--green-d);cursor:pointer;line-height:1;}
   .jnav:active{transform:scale(.92);background:#ece4d2;}
@@ -556,7 +558,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-014348';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-020128';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -874,7 +876,13 @@ function renderList(){ saveLocal();
   const hasReal=catalog.some(i=>!i.isAlert&&i.qty>0&&!i.done);   // 買うもの(実品目)が残っているか
   const show=listSeg==='todo'?catalog.filter(i=>i.isAlert?(!i.done&&!i.hidden&&hasReal):(i.qty>0&&!i.done)):catalog.filter(i=>i.qty>0&&i.done&&!i.isAlert);
   const area=$('#listArea');
-  if(show.length===0){area.innerHTML=`<div class="empty"><div class="e">${listSeg==='todo'?'🛒':'✅'}</div>${listSeg==='todo'?'のこりは ありません<br>「編集」で こすうを つけてね':'まだ カゴに 入れた品は ないよ'}</div>`;$('#restoreWrap').innerHTML='';return;}
+  if(show.length===0){
+    const emoji=listSeg==='todo'?'🛒':'✅';
+    const msg=listSeg==='todo'?'のこりは ありません<br>「編集」で こすうを つけてね':'まだ カゴに 入れた品は ないよ';
+    const rec=(listSeg==='todo'&&doneReal.length>0)?`<button id="emptyRecBtn" class="emptyrec">🛒 カゴの ${doneReal.length}こ を記録する</button>`:'';
+    const inner=(revMode&&rec)?`${rec}<div class="e">${emoji}</div>${msg}`:`<div class="e">${emoji}</div>${msg}${rec}`;
+    area.innerHTML=`<div class="empty">${inner}</div>`;$('#restoreWrap').innerHTML='';return;
+  }
   const showBadge=listSort!=='zone';
   let html='';
   let groups=groupItems(sortItems(show,listSort),listSort);
@@ -1389,6 +1397,7 @@ document.querySelector('.tabs').addEventListener('click',e=>{
 
 $('#listSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;listSeg=b.dataset.seg;[...$('#listSeg').children].forEach(x=>x.classList.toggle('on',x===b));renderList();});
 $('#restoreWrap').addEventListener('click',e=>{if(e.target.closest('#restoreAllBtn'))restoreAllDone();});
+$('#listArea').addEventListener('click',e=>{if(e.target.closest('#emptyRecBtn'))checkout();});
 function restoreAllDone(){
   const done=catalog.filter(i=>i.qty>0&&i.done);
   if(!done.length)return;
