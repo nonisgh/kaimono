@@ -189,24 +189,25 @@
   .imgico{flex:none;width:26px;height:26px;border-radius:8px;border:1.5px solid rgba(0,0,0,.10);background:rgba(0,0,0,var(--badge-a));display:grid;place-items:center;font-size:13px;cursor:pointer;color:var(--green-d);line-height:1;}
   .imgico:active{transform:scale(.92);filter:brightness(.92);}
   /* リスト行の写真ゾーン（右側・少し濃いめ・タップで表示） */
-  .srow-photo{flex:0 0 18%;min-width:52px;align-self:stretch;margin:-15px -15px -15px 0;display:grid;place-items:center;font-size:17px;background:rgba(0,0,0,calc(var(--badge-a) + .05));border-left:1px solid rgba(0,0,0,.10);}
+  .srow-photo{flex:0 0 22%;min-width:60px;align-self:stretch;margin:-15px -15px -15px 0;display:grid;place-items:center;font-size:18px;background:rgba(0,0,0,calc(var(--badge-a) + .05));border-left:1px solid rgba(0,0,0,.10);}
   .srow-photo:active{filter:brightness(.93);}
   body.fs .srow-photo{margin:-18px -16px -18px 0;}
   /* 検索＋目次バー（編集・品目） */
-  .findbar{position:sticky;top:var(--hdr,46px);z-index:38;background:var(--paper);padding:4px 0 8px;display:flex;flex-direction:column;gap:7px;}
+  .findbar{position:fixed;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;z-index:49;background:var(--paper);border-top:1.5px solid var(--line);box-shadow:0 -6px 20px -10px rgba(80,55,25,.35);padding:8px 12px calc(8px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:7px;}
+  #editTab,#itemTab{padding-bottom:calc(78px + env(safe-area-inset-bottom));}
   .searchrow{display:flex;align-items:center;gap:7px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:0 11px;}
   .searchrow .si{flex:none;font-size:14px;opacity:.6;}
   .searchrow input{flex:1;min-width:0;border:none;background:transparent;font-family:inherit;font-size:15px;padding:10px 0;outline:none;color:var(--ink);}
   .searchrow .clr{flex:none;border:none;background:transparent;font-size:15px;color:var(--ink-soft);cursor:pointer;padding:6px;}
   .jumprow{display:flex;align-items:center;gap:6px;}
-  .minirow{display:flex;align-items:center;gap:6px;}
+  .minirow{display:flex;align-items:center;gap:6px;justify-content:space-between;}
   .minicur{flex:1;min-width:0;border-radius:999px;padding:6px 12px;font-family:inherit;font-weight:800;font-size:13px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;text-align:center;}
   .minicur:active{transform:scale(.97);}
   .findbar .findfull{display:none;flex-direction:column;gap:7px;}
   .findbar.open .minirow{display:none;}
   .findbar.open .findfull{display:flex;}
   .fclose{border:none;background:transparent;font-family:inherit;font-weight:800;font-size:12px;color:var(--ink-soft);cursor:pointer;padding:2px;align-self:center;}
-  .jumpbar{flex:1;min-width:0;display:flex;gap:6px;overflow-x:auto;padding:2px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-behavior:smooth;}
+  .jumpbar{display:flex;gap:6px;overflow-x:auto;padding:6px 0;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-behavior:smooth;}
   .jumpbar::-webkit-scrollbar{display:none;}
   .jnav{flex:none;width:34px;height:30px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);font-family:inherit;font-weight:800;font-size:13px;color:var(--green-d);cursor:pointer;line-height:1;}
   .jnav:active{transform:scale(.92);background:#ece4d2;}
@@ -378,15 +379,16 @@
     <div class="hint">タップで ＋1 ・ 左にスワイプで −1</div>
     <div class="findbar" id="editFind">
       <div class="minirow">
-        <button class="jnav fopen" data-ft="edit">🔍</button>
+        <button class="jnav" data-jdoc="top">⤒</button>
         <button class="jnav" data-jn="-1">◀</button>
         <button class="minicur" data-ft="edit"></button>
         <button class="jnav" data-jn="1">▶</button>
+        <button class="jnav" data-jdoc="bottom">⤓</button>
       </div>
       <div class="findfull">
         <div class="searchrow"><span class="si">🔍</span><input id="editSearch" type="text" placeholder="さがす（品名・商品名）" enterkeyhint="search"><button class="clr" id="editSearchClr">✕</button></div>
         <div class="jumpbar" id="editJump"></div>
-        <button class="fclose" data-ft="edit">たたむ ▴</button>
+        <button class="fclose" data-ft="edit">たたむ ▾</button>
       </div>
     </div>
     <div id="editArea"></div>
@@ -406,15 +408,16 @@
     </div>
     <div class="findbar" id="itemFind">
       <div class="minirow">
-        <button class="jnav fopen" data-ft="item">🔍</button>
+        <button class="jnav" data-jdoc="top">⤒</button>
         <button class="jnav" data-jn="-1">◀</button>
         <button class="minicur" data-ft="item"></button>
         <button class="jnav" data-jn="1">▶</button>
+        <button class="jnav" data-jdoc="bottom">⤓</button>
       </div>
       <div class="findfull">
         <div class="searchrow"><span class="si">🔍</span><input id="itemSearch" type="text" placeholder="さがす（品名・商品名）" enterkeyhint="search"><button class="clr" id="itemSearchClr">✕</button></div>
         <div class="jumpbar" id="itemJump"></div>
-        <button class="fclose" data-ft="item">たたむ ▴</button>
+        <button class="fclose" data-ft="item">たたむ ▾</button>
       </div>
     </div>
     <div id="itemArea"></div>
@@ -541,7 +544,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-003927';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-004716';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1016,9 +1019,9 @@ function renderJump(barSel,present,sortMode,ft){
   const bar=$(barSel);if(!bar)return;
   const find=bar.closest('.findbar');
   const mini=find?find.querySelector('.minirow'):null;
-  if(sortMode!=='zone'){ if(mini)mini.querySelectorAll('.jnav:not(.fopen),.minicur').forEach(x=>x.style.display='none'); bar.innerHTML='';bar.style.display='none';return; }
-  if(mini)mini.querySelectorAll('.jnav,.minicur').forEach(x=>x.style.display='');
-  if(ft){bar.innerHTML='';bar.style.display='none';return;}
+  const nav=(sortMode==='zone'&&!ft);                        // ◀▶・現在地・チップは売り場順かつ非検索のみ（⤒⤓は常時）
+  if(mini)mini.querySelectorAll('[data-jn],.minicur').forEach(x=>x.style.display=nav?'':'none');
+  if(!nav){ bar.innerHTML=''; bar.style.display='none'; return; }
   bar.style.display='flex';
   bar.innerHTML=ZONES.map(z=>{const c=zoneColorOf(z);const on=present.has(z.code);return `<button class="jchip ${on?'':'off'}" data-jz="${esc(z.code)}" style="background:${c.bg};color:${c.ink};border:1.5px solid ${c.ink}">${esc(z.code)}</button>`;}).join('');
   requestAnimationFrame(updateJumpCur);
@@ -1031,10 +1034,9 @@ function jumpToZone(areaSel,code){
 function layoutSticky(){
   const hd=document.querySelector('header'); const h=hd?hd.offsetHeight:46;
   document.documentElement.style.setProperty('--hdr',h+'px');
-  const fb=document.querySelector('main:not(.hidden) .findbar');
-  const fbh=(fb&&fb.offsetHeight)?fb.offsetHeight:0;
-  document.documentElement.style.setProperty('--stick',(h+fbh+10)+'px');
+  document.documentElement.style.setProperty('--stick',(h+12)+'px');
 }
+function jumpDoc(where){ window.scrollTo({top: where==='top'?0:document.documentElement.scrollHeight, behavior:'smooth'}); }
 function updateMiniCur(code){                                 // ミニ行の現在地チップを更新
   const c=curArea(); if(!c)return;
   const find=$(c.area==='#editArea'?'#editFind':'#itemFind'); if(!find)return;
@@ -1047,11 +1049,13 @@ function updateMiniCur(code){                                 // ミニ行の現
 function curArea(){ return activeTab==='edit'?{area:'#editArea',bar:'#editJump',sort:editSort,ft:editFilter}:activeTab==='item'?{area:'#itemArea',bar:'#itemJump',sort:itemSort,ft:itemFilter}:null; }
 function currentZone(){                                       // 画面上部に今見えている売り場
   const c=curArea(); if(!c||c.sort!=='zone'||c.ft)return null;
-  const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150;
   const grps=document.querySelectorAll(c.area+' .grp[data-zone]');
+  if(!grps.length)return null;
+  if(window.innerHeight+window.scrollY>=document.documentElement.scrollHeight-6) return grps[grps.length-1].dataset.zone;  // 最下部＝最後の売り場
+  const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150;
   let cur=null;
   for(const g of grps){ const r=g.getBoundingClientRect(); if(r.top<=stick+8)cur=g.dataset.zone; else break; }
-  if(!cur&&grps.length)cur=grps[0].dataset.zone;
+  if(!cur)cur=grps[0].dataset.zone;
   return cur;
 }
 let _jzTick=null,_jzIdle=null;
@@ -1304,10 +1308,7 @@ $('#itemSearchClr').addEventListener('click',()=>{itemFilter='';$('#itemSearch')
 $('#editJump').addEventListener('click',e=>{const b=e.target.closest('.jchip');if(b)jumpToZone('#editArea',b.dataset.jz);});
 $('#itemJump').addEventListener('click',e=>{const b=e.target.closest('.jchip');if(b)jumpToZone('#itemArea',b.dataset.jz);});
 document.querySelectorAll('.jnav[data-jn]').forEach(b=>b.addEventListener('click',()=>jumpStep(parseInt(b.dataset.jn,10))));
-document.querySelectorAll('.fopen').forEach(b=>b.addEventListener('click',()=>{
-  const find=$(b.dataset.ft==='edit'?'#editFind':'#itemFind'); find.classList.add('open'); layoutSticky();
-  const inp=find.querySelector('input'); if(inp)inp.focus();
-}));
+document.querySelectorAll('.jnav[data-jdoc]').forEach(b=>b.addEventListener('click',()=>jumpDoc(b.dataset.jdoc)));
 document.querySelectorAll('.minicur').forEach(b=>b.addEventListener('click',()=>{
   const find=$(b.dataset.ft==='edit'?'#editFind':'#itemFind'); find.classList.add('open'); layoutSticky();
   requestAnimationFrame(()=>updateJumpCur(true));
