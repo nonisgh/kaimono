@@ -586,7 +586,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-061454';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-064433';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -905,6 +905,8 @@ function renderList(){ saveLocal();
   const hasReal=catalog.some(i=>!i.isAlert&&i.qty>0&&!i.done);   // 買うもの(実品目)が残っているか
   const show=listSeg==='todo'?catalog.filter(i=>i.isAlert?(!i.done&&!i.hidden&&hasReal):(i.qty>0&&!i.done)):catalog.filter(i=>i.qty>0&&i.done&&!i.isAlert);
   const area=$('#listArea');
+  const centerRec=(listSeg==='todo'&&show.length===0&&doneReal.length>0);   // 中央に記録ボタンが出る状態
+  $('#footer').classList.toggle('hidden',activeTab!=='list'||centerRec);     // そのときは上部/下部の記録ボタンを隠す
   if(show.length===0){
     const emoji=listSeg==='todo'?'🛒':'✅';
     const msg=listSeg==='todo'?'のこりは ありません<br>「編集」で こすうを つけてね':'まだ カゴに 入れた品は ないよ';
@@ -1166,10 +1168,11 @@ function checkout(){
   const bid=Date.now();
   history.unshift({bid,date:label,list:entries});
   if(SB.ready()) sbLogInsert(bid,label,now.toISOString(),sd.map(i=>({name:i.name,qty:i.qty,price:i.price,zone:i.zone,itemId:i.uid,picked:i.picked_at})));
-  done.forEach(i=>{i.done=false;i.qty=0;i.got=0;i.picked_at=null;});
+  done.forEach(i=>{i.done=false;i.qty=0;i.got=0;i.picked_at=null; localOverride.set(i.uid,{fields:{qty:0,done:false,got:0,picked_at:null},until:Date.now()+6000});});
+  quietUntil=Date.now()+2500; lastWrite=Date.now();
   sbBulkSet(done.map(i=>({id:i.uid,qty:0,done:false,got:0,picked_at:null})));
   const al=catalog.filter(i=>i.isAlert&&(i.done||i.got));   // アラートは毎回また出す
-  al.forEach(i=>{i.done=false;i.got=0;});
+  al.forEach(i=>{i.done=false;i.got=0; localOverride.set(i.uid,{fields:{done:false,got:0},until:Date.now()+6000});});
   if(al.length) sbBulkSet(al.map(i=>({id:i.uid,done:false,got:0})));
   renderList();renderHist();haptic('ok');toast(`${done.length}こ をアーカイブしました 🎉`);
 }
