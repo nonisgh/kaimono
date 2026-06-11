@@ -587,7 +587,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-065847';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-070338';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1082,8 +1082,12 @@ function renderJump(barSel,present,sortMode,ft){
 function jumpToZone(areaSel,code){
   const area=$(areaSel);if(!area)return;
   const sel='.grp[data-zone="'+((window.CSS&&CSS.escape)?CSS.escape(code):code)+'"]';
-  const el=area.querySelector(sel); if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  const el=area.querySelector(sel); if(!el)return;
+  _jumpUntil=Date.now()+700;                 // この間は通過ハイライトを出さない
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+  setCur(code);                              // 目的地を即ハイライト
 }
+function setCur(code){ const c=curArea(); if(!c)return; const bar=$(c.bar); if(bar)bar.querySelectorAll('.jchip').forEach(ch=>ch.classList.toggle('cur',ch.dataset.jz===code)); updateMiniCur(code); }
 function layoutSticky(){
   const hd=document.querySelector('header'); const h=hd?hd.offsetHeight:46;
   document.documentElement.style.setProperty('--hdr',h+'px');
@@ -1111,8 +1115,9 @@ function currentZone(){                                       // 画面上部に
   if(!cur)cur=grps[0].dataset.zone;
   return cur;
 }
-let _jzTick=null,_jzIdle=null;
+let _jzTick=null,_jzIdle=null,_jumpUntil=0;
 function updateJumpCur(slide){                                // 現在地チップを光らせる（slide=trueで中央へ）
+  if(Date.now()<_jumpUntil)return;                            // ジャンプ中は通過の軌跡を出さない
   const c=curArea(); if(!c)return;
   const code=currentZone(); const bar=$(c.bar); if(!bar)return;
   let curEl=null;
@@ -1403,16 +1408,22 @@ let _selZone=null;
 function setupPaint(barSel,areaSel,findSel){
   const bar=$(barSel); if(!bar)return;
   let painting=false;
-  const chipAt=(x,y)=>{ const el=document.elementFromPoint(x,y); return el&&bar.contains(el)?el.closest('.jchip'):null; };
+  const nearestChip=(x,y)=>{                                  // 隙間でも最寄りのチップを拾う＝追従が滑らか
+    let best=null,bd=Infinity;
+    bar.querySelectorAll('.jchip').forEach(c=>{ const r=c.getBoundingClientRect();
+      const dx=Math.max(r.left-x,0,x-r.right),dy=Math.max(r.top-y,0,y-r.bottom),d=dx*dx+dy*dy;
+      if(d<bd){bd=d;best=c;} });
+    return best;
+  };
   const select=chip=>{ if(!chip)return; bar.querySelectorAll('.jchip.sel').forEach(c=>c.classList.remove('sel')); chip.classList.add('sel'); _selZone=chip.dataset.jz; };
   bar.addEventListener('pointerdown',e=>{
-    const chip=e.target.closest('.jchip'); if(!chip)return;
+    const chip=e.target.closest('.jchip')||nearestChip(e.clientX,e.clientY); if(!chip)return;
     painting=true; select(chip); try{bar.setPointerCapture(e.pointerId);}catch(_){}
     armFind($(findSel));
   });
   bar.addEventListener('pointermove',e=>{
     if(!painting)return;
-    const chip=chipAt(e.clientX,e.clientY);
+    const chip=nearestChip(e.clientX,e.clientY);
     if(chip&&chip.dataset.jz!==_selZone) select(chip);                 // なぞって選択（ペイント）
   });
   const end=()=>{ if(!painting)return; painting=false;
