@@ -556,7 +556,7 @@
     </div>
     <div style="margin-top:14px;">
       <label style="display:block;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px;">⏱ 移動バーが自動でたたむまで <span id="findHideVal" style="color:var(--ink-soft);font-weight:700;font-size:12px;"></span></label>
-      <input id="findHide" type="range" min="0" max="8" step="1" style="width:100%;">
+      <input id="findHide" type="range" min="0" max="7" step="1" style="width:100%;">
       <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">チップを選んで指を離したあと、移動バーをたたむまでの時間。「離した瞬間」＝選んだら即たたむ／「たたまない」＝開いたまま</div>
     </div>
   </div>
@@ -608,7 +608,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-123537';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-194750';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1472,8 +1472,8 @@ function closeImg(){ $('#imgPop').classList.remove('open'); }
 $('#imgPop').addEventListener('click',closeImg);
 let hapticOn=(localStorage.getItem('kaimono.haptic')??'1')==='1';
 let badgeAlpha=parseInt(localStorage.getItem('kaimono.badgealpha')??'8',10);
-const HIDE_OPTS=[{v:0,label:'たたまない'},{v:5,label:'5秒'},{v:4,label:'4秒'},{v:3,label:'3秒'},{v:2,label:'2秒'},{v:1,label:'1秒'},{v:0.5,label:'0.5秒'},{v:0.1,label:'0.1秒'},{v:-1,label:'離した瞬間'}];
-let findHideSec=parseFloat(localStorage.getItem('kaimono.findhide')??'5');
+const HIDE_OPTS=[{v:0,label:'たたまない'},{v:5,label:'5秒'},{v:4,label:'4秒'},{v:3,label:'3秒'},{v:2,label:'2秒'},{v:1,label:'1秒'},{v:0.5,label:'0.5秒'},{v:-1,label:'離した瞬間'}];
+let findHideSec=parseFloat(localStorage.getItem('kaimono.findhide')??'-1'); if(findHideSec===0.1)findHideSec=0.5;
 function hideIdx(){ const i=HIDE_OPTS.findIndex(o=>o.v===findHideSec); return i<0?1:i; }
 function applyFindHide(){ const s=$('#findHide'),v=$('#findHideVal'),i=hideIdx(); if(s)s.value=i; if(v)v.textContent=HIDE_OPTS[i].label; }
 function applyBadgeAlpha(){ document.documentElement.style.setProperty('--badge-a',(badgeAlpha/100).toFixed(3)); const s=$('#badgeAlpha'),v=$('#badgeAlphaVal'); if(s)s.value=badgeAlpha; if(v)v.textContent=badgeAlpha+'%'; }
@@ -1587,7 +1587,7 @@ function armFind(find){                                       // バー内にN�
     setTimeout(()=>{ find.classList.remove('collapsing','open'); _lastJz=null; _selZone=null; _confirmedZone=null; layoutSticky(); },220);
   },findHideSec*1000);
 }
-['#editFind','#itemFind'].forEach(sel=>{ const f=$(sel); if(f)['pointerdown','input'].forEach(ev=>f.addEventListener(ev,()=>armFind(f))); });  // バー内タッチで延長
+['#editFind','#itemFind'].forEach(sel=>{ const f=$(sel); if(f)['pointerdown','input'].forEach(ev=>f.addEventListener(ev,()=>clearTimeout(_findTimer))); });  // バー内タッチ中は閉じない（保留キャンセル）
 let _selZone=null,_confirmedZone=null;
 function setupPaint(barSel,areaSel,findSel){
   const bar=$(barSel); if(!bar)return;
@@ -1606,13 +1606,12 @@ function setupPaint(barSel,areaSel,findSel){
   bar.addEventListener('pointerdown',e=>{
     const chip=e.target.closest('.jchip')||nearestChip(e.clientX,e.clientY); if(!chip)return;
     painting=true; _painting=true; moved=false; select(chip); try{bar.setPointerCapture(e.pointerId);}catch(_){}
-    armFind($(findSel));
+    clearTimeout(_findTimer);                                          // 触り直したら保留中の自動たたみをキャンセル
   });
   bar.addEventListener('pointermove',e=>{
     if(!painting)return;
     const chip=nearestChip(e.clientX,e.clientY);
     if(chip&&chip.dataset.jz!==_selZone){ moved=true; select(chip); }   // なぞって選択（ペイント）
-    armFind($(findSel));                                               // なぞってる間も延長
   });
   const end=()=>{ if(!painting)return; painting=false; _painting=false; hidePaintLabel();   // 指を離したらバナーを消す
     if(!moved && _selZone===_confirmedZone){                            // 確定中のチップを単タップ＝畳む
@@ -1623,7 +1622,7 @@ function setupPaint(barSel,areaSel,findSel){
     else armFind($(findSel));                                               // 離した時点から再カウント
   };
   bar.addEventListener('pointerup',end);
-  bar.addEventListener('pointercancel',()=>{painting=false;_painting=false;hidePaintLabel();armFind($(findSel));});
+  bar.addEventListener('pointercancel',()=>{painting=false;_painting=false;hidePaintLabel();clearTimeout(_findTimer);});
 }
 setupPaint('#editJump','#editArea','#editFind');
 setupPaint('#itemJump','#itemArea','#itemFind');
@@ -1633,7 +1632,7 @@ document.querySelectorAll('.minicur').forEach(b=>b.addEventListener('click',()=>
   const find=$(b.dataset.ft==='edit'?'#editFind':'#itemFind');
   const willOpen=!find.classList.contains('open');
   find.classList.toggle("open",willOpen); _lastJz=null; _selZone=null; _confirmedZone=null; layoutSticky();
-  if(willOpen){ requestAnimationFrame(()=>updateJumpCur(true)); armFind(find); } else clearTimeout(_findTimer);
+  if(willOpen){ requestAnimationFrame(()=>updateJumpCur(true)); } clearTimeout(_findTimer);   // 開いただけでは閉じない（ペイントして離した時だけカウント）
 }));
 document.querySelectorAll('.fclose').forEach(b=>b.addEventListener('click',()=>{
   const ed=b.dataset.ft==='edit';
