@@ -193,8 +193,8 @@
   .srow-photo:active{filter:brightness(.93);}
   body.fs .srow-photo{margin:-18px -16px -18px 0;}
   /* 検索＋目次バー（編集・品目） */
-  .findbar{position:fixed;left:10px;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));max-width:500px;margin:0 auto;z-index:49;background:var(--paper);border:1.5px solid var(--line);border-radius:18px;box-shadow:0 8px 26px -8px rgba(80,55,25,.45);padding:9px 11px;display:flex;flex-direction:column;gap:7px;}
-  #editTab,#itemTab{padding-bottom:calc(104px + env(safe-area-inset-bottom));}
+  .findbar{position:fixed;left:14px;right:14px;bottom:calc(30px + env(safe-area-inset-bottom));max-width:492px;margin:0 auto;z-index:49;background:var(--paper);border:1.5px solid var(--line);border-radius:18px;box-shadow:0 8px 26px -8px rgba(80,55,25,.45);padding:9px 11px;display:flex;flex-direction:column;gap:7px;}
+  #editTab,#itemTab{padding-bottom:calc(124px + env(safe-area-inset-bottom));}
   .searchrow{display:flex;align-items:center;gap:7px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:0 11px;}
   .searchrow .si{flex:none;font-size:14px;opacity:.6;}
   .searchrow input{flex:1;min-width:0;border:none;background:transparent;font-family:inherit;font-size:15px;padding:10px 0;outline:none;color:var(--ink);}
@@ -285,11 +285,9 @@
   .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:13px;font-weight:700;padding:10px 18px;border-radius:999px;z-index:90;opacity:0;transition:.25s;box-shadow:0 8px 20px -6px rgba(0,0,0,.4);max-width:90%;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
-  body.fs header,body.fs .toolrow{display:none !important;}
-  body.fs .wrap{padding-top:56px;}
+  body.fs header{display:none !important;}
+  body.fs .wrap{padding-top:8px;}
   body.fs .srow{padding:18px 16px;} body.fs .srow .nm{font-size:21px;}
-  .fsbtn{position:fixed;top:10px;right:12px;z-index:55;border:0;background:var(--ink);color:#fff;font-family:inherit;font-weight:900;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;box-shadow:0 6px 16px -6px rgba(0,0,0,.5);display:none;align-items:center;gap:6px;}
-  body.fs .fsbtn{display:inline-flex;}
   /* リバース（下から積む）*/
   body.rev #listTab{display:flex;flex-direction:column;}
   body.rev #footer{order:0;position:static;padding:0;background:none;margin-bottom:10px;}
@@ -433,7 +431,6 @@
   </main>
 </div>
 
-<button class="fsbtn" id="fsExit">✕ 全画面をとじる</button>
 
 <div class="footer hidden" id="footer"><div class="inner"><button class="checkout" id="checkoutBtn" disabled><span>🛒</span><span id="checkoutTxt">カゴに入れたものを記録</span></button></div></div>
 
@@ -544,7 +541,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-005239';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-010236';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1446,8 +1443,16 @@ $('#listArea').addEventListener('pointerup',e=>{
 });
 
 $('#checkoutBtn').addEventListener('click',checkout);
-$('#fsEnter').addEventListener('click',()=>{document.body.classList.add('fs');if(revMode)setTimeout(scrollBottom,80);});
-$('#revFs').addEventListener('click',()=>{document.body.classList.add('fs');setTimeout(scrollBottom,80);});
+function toggleFs(){
+  const on=!document.body.classList.contains('fs');
+  document.body.classList.toggle('fs',on);
+  const t=on?'⛶ とじる':'⛶ 全画面';
+  if($('#fsEnter'))$('#fsEnter').textContent=t;
+  if($('#revFs'))$('#revFs').textContent=t;
+  if(on&&revMode)setTimeout(scrollBottom,80);
+}
+$('#fsEnter').addEventListener('click',toggleFs);
+$('#revFs').addEventListener('click',toggleFs);
 $('#revUp').addEventListener('click',()=>{revPad=Math.min(52,revPad+4);localStorage.setItem('kaimono.revpad',revPad);applyRevPad();scrollBottom();});
 $('#revDown').addEventListener('click',()=>{revPad=Math.max(16,revPad-4);localStorage.setItem('kaimono.revpad',revPad);applyRevPad();scrollBottom();});
 $('#revBtn').addEventListener('click',()=>{revMode=!revMode;localStorage.setItem('kaimono.rev',revMode?'1':'0');applyReverse();renderList();if(revMode)scrollBottom();});
@@ -1460,7 +1465,7 @@ $('#histArea').addEventListener('click',e=>{
     renderHist();toast('履歴を消しました');
   });
 });
-$('#fsExit').addEventListener('click',()=>document.body.classList.remove('fs'));
+
 
 /* item sheet */
 $('#sheetBg').addEventListener('click',closeEdit);
