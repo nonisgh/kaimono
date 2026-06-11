@@ -445,6 +445,7 @@
       <div class="count">買ったもの の記録</div>
       <select class="sortsel" id="histSort"></select>
     </div>
+    <div style="padding:0 2px 4px;"><button class="ghostbtn" id="mergeDayBtn">🗂 同じ日付をまとめる</button></div>
     <div id="histArea"></div>
   </main>
 </div>
@@ -587,7 +588,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-070641';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-071129';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1038,6 +1039,38 @@ function renderItems(){ saveLocal();
   layoutSticky();
 }
 
+async function mergeSameDay(){
+  if(!SB.ready()){toast('同期ONのときに使えます');return;}
+  const dayKey=lbl=>(lbl||'').replace(/\s*\d{1,2}:\d{2}\s*$/,'').trim();
+  const groups=new Map();
+  history.forEach(h=>{ const k=dayKey(h.date); if(!groups.has(k))groups.set(k,[]); groups.get(k).push(h); });
+  const mergeable=[...groups.entries()].filter(([,arr])=>arr.length>1);
+  if(!mergeable.length){toast('まとめられる同じ日付の履歴はありません');return;}
+  const dayCount=mergeable.length, batchCount=mergeable.reduce((a,[,arr])=>a+arr.length,0);
+  askConfirm('同じ日付の履歴をまとめる',`${dayCount}日ぶん（計${batchCount}件）を、日付ごとに1件へまとめます。同じ品は個数を合算します。`,async()=>{
+    try{
+      for(const [day,arr] of mergeable){
+        const bids=arr.map(h=>h.bid).filter(b=>b!=null);
+        if(bids.length<2)continue;
+        const {data,error}=await SB.client.from('purchase_log').select('*').in('batch_id',bids);
+        if(error)throw error;
+        const agg=new Map(); let latest=null;
+        for(const r of (data||[])){
+          const key=r.item_id!=null?('id:'+r.item_id):('nm:'+(r.name||''));
+          if(!agg.has(key))agg.set(key,{name:r.name,qty:0,price:r.price||0,zone:r.zone_code||null,itemId:r.item_id??null,picked:r.picked_at||null});
+          const a=agg.get(key); a.qty+=(r.qty||1); if(!a.price&&r.price)a.price=r.price; if(!a.picked&&r.picked_at)a.picked=r.picked_at;
+          if(!latest||r.archived_at>latest)latest=r.archived_at;
+        }
+        const newBid=Date.now()+Math.floor(Math.random()*100000);
+        const {error:de}=await SB.client.from('purchase_log').delete().in('batch_id',bids);
+        if(de)throw de;
+        const {error:ie}=await SB.client.from('purchase_log').insert([...agg.values()].map(e=>({batch_id:newBid,archived_at:latest||new Date().toISOString(),label:day,name:e.name,qty:e.qty,price:e.price,zone_code:e.zone,item_id:e.itemId,picked_at:e.picked})));
+        if(ie)throw ie;
+      }
+      await loadHistory(); renderHist(); haptic('ok'); toast('同じ日付をまとめました');
+    }catch(e){ console.error(e); toast('まとめに失敗しました'); await loadHistory(); renderHist(); }
+  });
+}
 function renderHist(){ saveLocal();
   const area=$('#histArea');
   if(history.length===0){area.innerHTML=`<div class="empty"><div class="e">📦</div>まだ 記録は ないよ</div>`;return;}
@@ -1186,7 +1219,9 @@ function checkout(){
 let impSrc=null;
 function openImport(src,msg){ impSrc=src; $('#impMsg').textContent=msg||'編集（買うもの）に取り込みます。'; $('#impBg').classList.add('open'); $('#impSheet').classList.add('open'); }
 function closeImport(){ $('#impBg').classList.remove('open'); $('#impSheet').classList.remove('open'); impSrc=null; }
+let _impSkip=0;
 async function importTargets(src){                          // → [{it,qty}] / null
+  _impSkip=0;
   if(src.type==='keep'){
     const ks=catalog.filter(i=>i.keep&&i.keepQty>0&&!i.isAlert);
     if(!ks.length){toast('★定番がまだ無いよ（品目の編集でON＋個数指定）');return null;}
@@ -1211,6 +1246,7 @@ async function importTargets(src){                          // → [{it,qty}] / 
     const base=(r.name||'').replace(/\s*×\d+$/,'');
     const it=(r.item_id!=null&&byId.get(Number(r.item_id)))||byName.get(r.name)||byName.get(base);
     if(it&&!it.isAlert)out.push({it,qty:r.qty||1});
+    else _impSkip++;                                       // 品目が削除済み等で見つからない
   }
   return out;
 }
@@ -1230,7 +1266,8 @@ async function applyImport(mode){
   sbBulkSet(changed.map(i=>({id:i.uid,qty:i.qty,got:i.got,done:i.done,picked_at:i.picked_at})));
   saveLocal();
   if(activeTab!=='edit')document.querySelector('.tabs [data-tab="edit"]').click(); else renderEdit();
-  toast(mode==='over'?'上書きで取り込みました':'追加で取り込みました');
+  const sk=_impSkip?`（${_impSkip}品は品目が削除済みで取り込めず）`:'';
+  toast((mode==='over'?'上書きで取り込みました':'追加で取り込みました')+sk);
 }
 function renumber(){
   sortItems(catalog,'zone').forEach((it,i)=>it.id=i+1);
@@ -1590,6 +1627,7 @@ $('#revFs').addEventListener('click',toggleFs);
 $('#revUp').addEventListener('click',()=>{revPad=Math.min(52,revPad+4);localStorage.setItem('kaimono.revpad',revPad);applyRevPad();scrollBottom();});
 $('#revDown').addEventListener('click',()=>{revPad=Math.max(16,revPad-4);localStorage.setItem('kaimono.revpad',revPad);applyRevPad();scrollBottom();});
 $('#revBtn').addEventListener('click',()=>{revMode=!revMode;localStorage.setItem('kaimono.rev',revMode?'1':'0');applyReverse();renderList();if(revMode)scrollBottom();});
+$('#mergeDayBtn').addEventListener('click',mergeSameDay);
 $('#histArea').addEventListener('click',e=>{
   const imp=e.target.closest('.histimp');
   if(imp){ const raw=imp.dataset.bid; if(raw===''){toast('取り込めません');return;} const bid=isNaN(+raw)?raw:+raw; openImport({type:'hist',bid},'この買い物を編集に取り込みます。'); return; }
