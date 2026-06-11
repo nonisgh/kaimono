@@ -91,6 +91,8 @@
   .bmrow .bmmeta{font-size:11px;color:var(--ink-soft);flex:none;}
   .bmrow .bmgo{flex:none;background:var(--green);color:#fff;font-size:12px;font-weight:800;padding:5px 11px;border-radius:999px;white-space:nowrap;opacity:0;transform:translateX(6px);transition:.14s;pointer-events:none;}
   .bmrow:hover .bmgo,.bmrow:active .bmgo{opacity:1;transform:none;}
+  .bmrow .bmover{flex:none;border:1.5px solid var(--line);background:var(--card);color:var(--green-d);font-family:inherit;font-weight:800;font-size:11px;padding:6px 9px;border-radius:999px;cursor:pointer;white-space:nowrap;}
+  .bmrow .bmover:active{transform:scale(.94);background:#ece2cb;}
   .bmrow .bmdel{margin-left:2px;border:0;border-left:1.5px solid var(--line);background:none;color:var(--hot);font-family:inherit;font-weight:800;font-size:15px;padding:4px 4px 4px 12px;cursor:pointer;flex:none;}
   .bmempty{font-size:12px;color:var(--ink-soft);text-align:center;padding:14px 0;}
 
@@ -558,7 +560,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-020128';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-053422';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -762,6 +764,7 @@ async function loadHistory(){ const {data,error}=await SB.client.from('purchase_
 async function loadBookmarks(){ if(!SB.ready())return; const {data,error}=await SB.client.from('bookmarks').select('*').order('created_at',{ascending:false}); if(error){console.warn('bookmarks 読み込み不可（テーブル未作成かも）',error.message);return;} bookmarks=data.map(r=>({uid:Number(r.id),name:r.name||'',data:Array.isArray(r.data)?r.data:[],created_at:r.created_at})); }
 async function sbBookmarkInsert(name,data){ if(!SB.ready())return null; syncPulse(); const {data:d,error}=await SB.client.from('bookmarks').insert({name,data}).select().single(); if(error){console.error(error);return null;} return d.id; }
 function sbBookmarkDelete(uid){ if(!SB.ready())return; syncPulse(); SB.client.from('bookmarks').delete().eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
+function sbBookmarkUpdate(uid,data){ if(!SB.ready())return; syncPulse(); SB.client.from('bookmarks').update({data}).eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
 async function seedIfEmpty(){
   const z=await SB.client.from('zones').select('code',{count:'exact',head:true});
   if(!z.error && z.count===0) await SB.client.from('zones').insert(ZONES.map((zz,i)=>zoneRow(zz,i)));
@@ -1576,7 +1579,7 @@ function renderBookmarks(){
   if(!bookmarks.length){ el.innerHTML='<div class="bmempty">まだ ブックマークは ないよ</div>'; return; }
   el.innerHTML=bookmarks.map(b=>{
     const n=(b.data||[]).reduce((s,x)=>s+(x.qty||0),0);
-    return `<div class="bmrow" data-uid="${b.uid}"><span class="bmnm">${esc(b.name||'(名前なし)')}</span><span class="bmmeta">${(b.data||[]).length}品/${n}こ</span><span class="bmgo">→ 読込</span><button class="bmdel" data-act="del" aria-label="削除">✕</button></div>`;
+    return `<div class="bmrow" data-uid="${b.uid}"><span class="bmnm">${esc(b.name||'(名前なし)')}</span><span class="bmmeta">${(b.data||[]).length}品/${n}こ</span><span class="bmgo">→ 読込</span><button class="bmover" data-act="over">⤓ 上書き</button><button class="bmdel" data-act="del" aria-label="削除">✕</button></div>`;
   }).join('');
 }
 async function saveBookmark(){
@@ -1610,11 +1613,19 @@ function delBookmark(uid){
   const b=bookmarks.find(x=>x.uid===uid); if(!b)return;
   bookmarks=bookmarks.filter(x=>x.uid!==uid); sbBookmarkDelete(uid); saveLocal(); renderBookmarks(); toast('削除しました');
 }
+function overwriteBookmark(uid){
+  const b=bookmarks.find(x=>x.uid===uid); if(!b)return;
+  const data=catalog.filter(i=>!i.isAlert&&i.qty>0).map(i=>({uid:i.uid,name:i.name,product:i.product||'',qty:i.qty}));
+  if(!data.length){toast('「買うもの」が空だよ（編集で個数をつけてね）');return;}
+  askConfirm('ブックマークを上書き',`「${b.name}」を今の「買うもの」(${data.length}品)で上書きします`,()=>{
+    b.data=data; sbBookmarkUpdate(uid,data); saveLocal(); renderBookmarks(); toast(`「${b.name}」を上書きしました`);
+  });
+}
 $('#bookmarkBtn').addEventListener('click',openBookmarks);
 $('#bmClose').addEventListener('click',closeBookmarks);
 $('#bmBg').addEventListener('click',closeBookmarks);
 $('#bmSaveBtn').addEventListener('click',saveBookmark);
-$('#bmList').addEventListener('click',e=>{ const row=e.target.closest('.bmrow'); if(!row)return; const uid=Number(row.dataset.uid); if(e.target.closest('[data-act="del"]')){delBookmark(uid);return;} loadBookmark(uid); });
+$('#bmList').addEventListener('click',e=>{ const row=e.target.closest('.bmrow'); if(!row)return; const uid=Number(row.dataset.uid); if(e.target.closest('[data-act="del"]')){delBookmark(uid);return;} if(e.target.closest('[data-act="over"]')){overwriteBookmark(uid);return;} loadBookmark(uid); });
 $('#keepToggle').addEventListener('click',()=>{editKeep=!editKeep;renderKeepBtn();});
 $('#hideToggle').addEventListener('click',()=>{editHidden=!editHidden;renderHideBtn();});
 $('#loadKeepBtn').addEventListener('click',()=>openImport({type:'keep'},'定番（★）を編集に取り込みます。'));
