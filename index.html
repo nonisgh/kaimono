@@ -620,7 +620,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-211024';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-211400';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1295,14 +1295,16 @@ function afterScroll(cb){                     // 動いて減速し“止まり�
   requestAnimationFrame(tick);
 }
 let jumpAnchor=localStorage.getItem('kaimono.jumpanchor')||'mid';   // top=上部 / mid=やや下（既定）
+function centerOffset(){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150;
+  const c=curArea(); const find=c?$(c.area==='#editArea'?'#editFind':'#itemFind'):null;
+  let barTop=window.innerHeight*0.9;
+  if(find){ const r=find.getBoundingClientRect(); if(r.height)barTop=r.top; }
+  return Math.round(stick+(barTop-stick)*0.42);                  // 上のタブ〜下のバーの間（やや上め）
+}
 function anchorOffset(){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150;
-  if(jumpAnchor==='center'){                                  // 上のタブ〜下のバーの間（やや上め）
-    const c=curArea(); const find=c?$(c.area==='#editArea'?'#editFind':'#itemFind'):null;
-    let barTop=window.innerHeight*0.9;
-    if(find){ const r=find.getBoundingClientRect(); if(r.height)barTop=r.top; }
-    return Math.round(stick+(barTop-stick)*0.42);
-  }
-  return stick + (jumpAnchor==='mid'?Math.round(window.innerHeight*0.12):0); }
+  if(jumpAnchor==='center') return centerOffset();
+  if(jumpAnchor==='mid'){ const old=stick+Math.round(window.innerHeight*0.12); return Math.round((old+centerOffset())/2); }  // 旧やや下と中央の中間
+  return stick; }
 function applyJumpAnchor(){ document.querySelectorAll('#jumpAnchorSeg button').forEach(b=>b.classList.toggle('on',b.dataset.ja===jumpAnchor)); const v=$('#jumpAnchorVal'); if(v)v.textContent=(jumpAnchor==='center'?'中央':jumpAnchor==='mid'?'やや下':'上部'); }
 function setCur(code){ const c=curArea(); if(!c)return; const bar=$(c.bar); if(bar)bar.querySelectorAll('.jchip').forEach(ch=>ch.classList.toggle('cur',ch.dataset.jz===code)); updateMiniCur(code); }
 function layoutSticky(){
