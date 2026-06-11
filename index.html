@@ -567,7 +567,6 @@
       <div class="cfgseg" id="jumpAnchorSeg">
         <button data-ja="top">上部</button>
         <button data-ja="mid">やや下</button>
-        <button data-ja="center">中央</button>
       </div>
       <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">チップで移動したとき、その売り場の先頭を画面のどこに表示するか。「やや下」＝少し下げて見やすく</div>
     </div>
@@ -620,7 +619,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-211400';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-211729';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1294,7 +1293,7 @@ function afterScroll(cb){                     // 動いて減速し“止まり�
     requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
 }
-let jumpAnchor=localStorage.getItem('kaimono.jumpanchor')||'mid';   // top=上部 / mid=やや下（既定）
+let jumpAnchor=localStorage.getItem('kaimono.jumpanchor')||'mid'; if(jumpAnchor==='center')jumpAnchor='mid';   // top=上部 / mid=やや下
 function centerOffset(){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150;
   const c=curArea(); const find=c?$(c.area==='#editArea'?'#editFind':'#itemFind'):null;
   let barTop=window.innerHeight*0.9;
@@ -1302,10 +1301,9 @@ function centerOffset(){ const stick=parseFloat(getComputedStyle(document.docume
   return Math.round(stick+(barTop-stick)*0.42);                  // 上のタブ〜下のバーの間（やや上め）
 }
 function anchorOffset(){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150;
-  if(jumpAnchor==='center') return centerOffset();
-  if(jumpAnchor==='mid'){ const old=stick+Math.round(window.innerHeight*0.12); return Math.round((old+centerOffset())/2); }  // 旧やや下と中央の中間
+  if(jumpAnchor==='mid'){ const old=stick+Math.round(window.innerHeight*0.12); return Math.round((old+centerOffset())/2); }  // やや下＝旧やや下と中央の中間
   return stick; }
-function applyJumpAnchor(){ document.querySelectorAll('#jumpAnchorSeg button').forEach(b=>b.classList.toggle('on',b.dataset.ja===jumpAnchor)); const v=$('#jumpAnchorVal'); if(v)v.textContent=(jumpAnchor==='center'?'中央':jumpAnchor==='mid'?'やや下':'上部'); }
+function applyJumpAnchor(){ document.querySelectorAll('#jumpAnchorSeg button').forEach(b=>b.classList.toggle('on',b.dataset.ja===jumpAnchor)); const v=$('#jumpAnchorVal'); if(v)v.textContent=(jumpAnchor==='mid'?'やや下':'上部'); }
 function setCur(code){ const c=curArea(); if(!c)return; const bar=$(c.bar); if(bar)bar.querySelectorAll('.jchip').forEach(ch=>ch.classList.toggle('cur',ch.dataset.jz===code)); updateMiniCur(code); }
 function layoutSticky(){
   const hd=document.querySelector('header'); const h=hd?hd.offsetHeight:46;
