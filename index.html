@@ -600,7 +600,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-120317';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-121546';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1563,24 +1563,25 @@ $('#editSearch').addEventListener('input',e=>{editFilter=e.target.value.trim().t
 $('#editSearchClr').addEventListener('click',()=>{editFilter='';$('#editSearch').value='';renderEdit();});
 $('#itemSearch').addEventListener('input',e=>{itemFilter=e.target.value.trim().toLowerCase();renderItems();});
 $('#itemSearchClr').addEventListener('click',()=>{itemFilter='';$('#itemSearch').value='';renderItems();});
-let _lastJz=null,_findTimer=null;
+let _lastJz=null,_findTimer=null,_painting=false;
 function armFind(find){                                       // バー内にN秒タッチが無ければ自動でたたむ
   clearTimeout(_findTimer);
   if(!find||!find.classList.contains('open')||findHideSec<=0)return;   // 0＝たたまない
   _findTimer=setTimeout(()=>{
     if(!find.classList.contains('open'))return;
+    if(_painting){ armFind(find); return; }                               // チップ操作中はたたまない
     if(find.contains(document.activeElement)){ armFind(find); return; }   // 入力中はたたまない
     const ed=find.id==='editFind';
     if((ed&&editFilter)||(!ed&&itemFilter)){ armFind(find); return; }      // 検索中はたたまない
     find.classList.add('collapsing');                                     // ｻｯと消えるアニメ（自動時だけ）
-    setTimeout(()=>{ find.classList.remove('collapsing','open'); _lastJz=null; _selZone=null; layoutSticky(); },220);
+    setTimeout(()=>{ find.classList.remove('collapsing','open'); _lastJz=null; _selZone=null; _confirmedZone=null; layoutSticky(); },220);
   },findHideSec*1000);
 }
 ['#editFind','#itemFind'].forEach(sel=>{ const f=$(sel); if(f)['pointerdown','input'].forEach(ev=>f.addEventListener(ev,()=>armFind(f))); });  // バー内タッチで延長
-let _selZone=null;
+let _selZone=null,_confirmedZone=null;
 function setupPaint(barSel,areaSel,findSel){
   const bar=$(barSel); if(!bar)return;
-  let painting=false;
+  let painting=false,moved=false;
   const nearestChip=(x,y)=>{                                  // 隙間でも最寄りのチップを拾う＝追従が滑らか
     let best=null,bd=Infinity;
     bar.querySelectorAll('.jchip').forEach(c=>{ const r=c.getBoundingClientRect();
@@ -1591,20 +1592,24 @@ function setupPaint(barSel,areaSel,findSel){
   const select=chip=>{ if(!chip)return; bar.querySelectorAll('.jchip.sel').forEach(c=>c.classList.remove('sel')); chip.classList.add('sel'); _selZone=chip.dataset.jz; };
   bar.addEventListener('pointerdown',e=>{
     const chip=e.target.closest('.jchip')||nearestChip(e.clientX,e.clientY); if(!chip)return;
-    painting=true; select(chip); try{bar.setPointerCapture(e.pointerId);}catch(_){}
+    painting=true; _painting=true; moved=false; select(chip); try{bar.setPointerCapture(e.pointerId);}catch(_){}
     armFind($(findSel));
   });
   bar.addEventListener('pointermove',e=>{
     if(!painting)return;
     const chip=nearestChip(e.clientX,e.clientY);
-    if(chip&&chip.dataset.jz!==_selZone) select(chip);                 // なぞって選択（ペイント）
+    if(chip&&chip.dataset.jz!==_selZone){ moved=true; select(chip); }   // なぞって選択（ペイント）
+    armFind($(findSel));                                               // なぞってる間も延長
   });
-  const end=()=>{ if(!painting)return; painting=false;
-    if(_selZone) jumpToZone(areaSel,_selZone);                          // 離したら選択中へ確定（移動）
-    armFind($(findSel));
+  const end=()=>{ if(!painting)return; painting=false; _painting=false;
+    if(!moved && _selZone===_confirmedZone){                            // 確定中のチップを単タップ＝畳む
+      $(findSel).classList.remove('open'); _selZone=null; _confirmedZone=null; clearTimeout(_findTimer); layoutSticky(); return;
+    }
+    if(_selZone){ jumpToZone(areaSel,_selZone); _confirmedZone=_selZone; }   // 離したら選択中へ確定（移動）
+    armFind($(findSel));                                               // 離した時点から再カウント
   };
   bar.addEventListener('pointerup',end);
-  bar.addEventListener('pointercancel',()=>{painting=false;});
+  bar.addEventListener('pointercancel',()=>{painting=false;_painting=false;armFind($(findSel));});
 }
 setupPaint('#editJump','#editArea','#editFind');
 setupPaint('#itemJump','#itemArea','#itemFind');
@@ -1613,12 +1618,12 @@ document.querySelectorAll('.jnav[data-jdoc]').forEach(b=>b.addEventListener('cli
 document.querySelectorAll('.minicur').forEach(b=>b.addEventListener('click',()=>{
   const find=$(b.dataset.ft==='edit'?'#editFind':'#itemFind');
   const willOpen=!find.classList.contains('open');
-  find.classList.toggle("open",willOpen); _lastJz=null; _selZone=null; layoutSticky();
+  find.classList.toggle("open",willOpen); _lastJz=null; _selZone=null; _confirmedZone=null; layoutSticky();
   if(willOpen){ requestAnimationFrame(()=>updateJumpCur(true)); armFind(find); } else clearTimeout(_findTimer);
 }));
 document.querySelectorAll('.fclose').forEach(b=>b.addEventListener('click',()=>{
   const ed=b.dataset.ft==='edit';
-  const find=$(ed?'#editFind':'#itemFind'); find.classList.remove("open"); _lastJz=null; _selZone=null; clearTimeout(_findTimer);
+  const find=$(ed?'#editFind':'#itemFind'); find.classList.remove("open"); _lastJz=null; _selZone=null; _confirmedZone=null; clearTimeout(_findTimer);
   if(ed&&editFilter){editFilter='';$('#editSearch').value='';renderEdit();}
   if(!ed&&itemFilter){itemFilter='';$('#itemSearch').value='';renderItems();}
   layoutSticky();
