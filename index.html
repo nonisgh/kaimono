@@ -93,6 +93,14 @@
   .bmrow:hover .bmgo,.bmrow:active .bmgo{opacity:1;transform:none;}
   .bmrow .bmover{flex:none;border:1.5px solid var(--line);background:var(--card);color:var(--green-d);font-family:inherit;font-weight:800;font-size:11px;padding:6px 9px;border-radius:999px;cursor:pointer;white-space:nowrap;}
   .bmrow .bmover:active{transform:scale(.94);background:#ece2cb;}
+  .bmerow{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:11px;padding:8px 10px;margin-bottom:7px;}
+  .bmerow .bmenm{flex:1;min-width:0;font-weight:800;font-size:13px;overflow:hidden;}
+  .bmerow .bmenm .prod{font-size:11px;font-weight:600;color:var(--ink-soft);margin-top:1px;}
+  .bmeqty{flex:none;display:flex;align-items:center;gap:8px;}
+  .bmeqty .qb{width:30px;height:30px;border-radius:8px;border:1.5px solid var(--line);background:var(--paper);font-family:inherit;font-weight:900;font-size:16px;color:var(--green-d);cursor:pointer;line-height:1;}
+  .bmeqty .qb:active{transform:scale(.9);}
+  .bmeqty .qn{min-width:20px;text-align:center;font-weight:900;font-size:14px;}
+  .bmedel{flex:none;border:0;background:none;color:var(--hot);font-family:inherit;font-weight:800;font-size:15px;padding:4px 4px 4px 8px;border-left:1.5px solid var(--line);cursor:pointer;}
   .bmrow .bmdel{margin-left:2px;border:0;border-left:1.5px solid var(--line);background:none;color:var(--hot);font-family:inherit;font-weight:800;font-size:15px;padding:4px 4px 4px 12px;cursor:pointer;flex:none;}
   .bmempty{font-size:12px;color:var(--ink-soft);text-align:center;padding:14px 0;}
 
@@ -494,10 +502,21 @@
 <div class="sheet" id="bmSheet">
   <div class="grab"></div>
   <h3>🔖 ブックマーク</h3>
-  <div style="font-size:12px;color:var(--ink-soft);margin:-4px 2px 10px;line-height:1.5;">今の「買うもの（個数）」を保存できます。名前を空で保存すると日時が名前になります。一覧をタップで読み込み（今の内容をクリアして入れ替え）。</div>
+  <div style="font-size:12px;color:var(--ink-soft);margin:-4px 2px 10px;line-height:1.5;">今の「買うもの（個数）」を保存できます。名前を空で保存すると日時が名前になります。一覧をタップで読み込み（今の内容をクリアして入れ替え）。<b>長押しで編集</b>（名前・中身の変更）。</div>
   <div class="addbar" style="margin-bottom:10px;"><input id="bmName" type="text" placeholder="名前（例：いつもの平日）" enterkeyhint="done"><button class="addbtn" id="bmSaveBtn">保存</button></div>
   <div id="bmList"></div>
   <div class="sheetbtns" style="margin-top:6px;"><button class="b-cancel" id="bmClose">とじる</button></div>
+</div>
+
+<!-- bookmark edit sheet -->
+<div class="sheetbg" id="bmEditBg"></div>
+<div class="sheet" id="bmEditSheet">
+  <div class="grab"></div>
+  <h3>🔖 ブックマークを編集</h3>
+  <div class="addbar" style="margin-bottom:10px;"><input id="bmEditName" type="text" placeholder="名前" enterkeyhint="done"></div>
+  <div id="bmEditList" style="max-height:44vh;overflow-y:auto;"></div>
+  <button class="ghostbtn" id="bmEditOver" style="margin-top:8px;width:100%;">⤓ 今の「買うもの」で中身を上書き</button>
+  <div class="sheetbtns" style="margin-top:10px;"><button class="b-del" id="bmEditDelete">削除</button><button class="b-cancel" id="bmEditCancel">やめる</button><button class="b-save" id="bmEditSave">保存</button></div>
 </div>
 <div class="sheetbg" id="zoneBg"></div>
 <div class="sheet" id="zoneSheet">
@@ -567,7 +586,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-060529';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-061454';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -771,7 +790,7 @@ async function loadHistory(){ const {data,error}=await SB.client.from('purchase_
 async function loadBookmarks(){ if(!SB.ready())return; const {data,error}=await SB.client.from('bookmarks').select('*').order('created_at',{ascending:false}); if(error){console.warn('bookmarks 読み込み不可（テーブル未作成かも）',error.message);return;} bookmarks=data.map(r=>({uid:Number(r.id),name:r.name||'',data:Array.isArray(r.data)?r.data:[],created_at:r.created_at})); }
 async function sbBookmarkInsert(name,data){ if(!SB.ready())return null; syncPulse(); const {data:d,error}=await SB.client.from('bookmarks').insert({name,data}).select().single(); if(error){console.error(error);return null;} return d.id; }
 function sbBookmarkDelete(uid){ if(!SB.ready())return; syncPulse(); SB.client.from('bookmarks').delete().eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
-function sbBookmarkUpdate(uid,data){ if(!SB.ready())return; syncPulse(); SB.client.from('bookmarks').update({data}).eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
+function sbBookmarkUpdate(uid,fields){ if(!SB.ready())return; syncPulse(); SB.client.from('bookmarks').update(fields).eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
 async function seedIfEmpty(){
   const z=await SB.client.from('zones').select('code',{count:'exact',head:true});
   if(!z.error && z.count===0) await SB.client.from('zones').insert(ZONES.map((zz,i)=>zoneRow(zz,i)));
@@ -1640,14 +1659,64 @@ function overwriteBookmark(uid){
   const data=catalog.filter(i=>!i.isAlert&&i.qty>0).map(i=>({uid:i.uid,name:i.name,product:i.product||'',qty:i.qty}));
   if(!data.length){toast('「買うもの」が空だよ（編集で個数をつけてね）');return;}
   askConfirm('ブックマークを上書き',`「${b.name}」を今の「買うもの」(${data.length}品)で上書きします`,()=>{
-    b.data=data; sbBookmarkUpdate(uid,data); saveLocal(); renderBookmarks(); toast(`「${b.name}」を上書きしました`);
+    b.data=data; sbBookmarkUpdate(uid,{data}); saveLocal(); renderBookmarks(); toast(`「${b.name}」を上書きしました`);
   });
+}
+let bmEditUid=null,bmEditData=[];
+function openBmEdit(uid){
+  const b=bookmarks.find(x=>x.uid===uid); if(!b)return;
+  bmEditUid=uid; bmEditData=(b.data||[]).map(x=>({...x}));
+  $('#bmEditName').value=b.name||'';
+  renderBmEditList();
+  $('#bmEditBg').classList.add('open'); $('#bmEditSheet').classList.add('open');
+}
+function closeBmEdit(){ $('#bmEditBg').classList.remove('open'); $('#bmEditSheet').classList.remove('open'); bmEditUid=null; bmEditData=[]; }
+function renderBmEditList(){
+  const el=$('#bmEditList');
+  if(!bmEditData.length){ el.innerHTML='<div class="bmempty">中身がありません（下のボタンで今の内容を取り込めます）</div>'; return; }
+  el.innerHTML=bmEditData.map((x,idx)=>`<div class="bmerow" data-idx="${idx}"><div class="bmenm"><span>${esc(x.name||'')}</span>${x.product?`<div class="prod">${esc(x.product)}</div>`:''}</div><div class="bmeqty"><button class="qb" data-act="dec">−</button><span class="qn">${x.qty}</span><button class="qb" data-act="inc">＋</button></div><button class="bmedel" data-act="rm">✕</button></div>`).join('');
 }
 $('#bookmarkBtn').addEventListener('click',openBookmarks);
 $('#bmClose').addEventListener('click',closeBookmarks);
 $('#bmBg').addEventListener('click',closeBookmarks);
 $('#bmSaveBtn').addEventListener('click',saveBookmark);
-$('#bmList').addEventListener('click',e=>{ const row=e.target.closest('.bmrow'); if(!row)return; const uid=Number(row.dataset.uid); if(e.target.closest('[data-act="del"]')){delBookmark(uid);return;} if(e.target.closest('[data-act="over"]')){overwriteBookmark(uid);return;} loadBookmark(uid); });
+let _bmLp=null,_bmLpFired=false,_bmLpXY=null;
+$('#bmList').addEventListener('pointerdown',e=>{
+  const row=e.target.closest('.bmrow'); if(!row||e.target.closest('button'))return;
+  _bmLpFired=false; _bmLpXY=[e.clientX,e.clientY];
+  const uid=Number(row.dataset.uid);
+  clearTimeout(_bmLp); _bmLp=setTimeout(()=>{_bmLpFired=true;openBmEdit(uid);haptic('ok');},600);
+});
+$('#bmList').addEventListener('pointermove',e=>{ if(_bmLpXY&&(Math.abs(e.clientX-_bmLpXY[0])>10||Math.abs(e.clientY-_bmLpXY[1])>10))clearTimeout(_bmLp); });
+['pointerup','pointercancel','pointerleave'].forEach(ev=>$('#bmList').addEventListener(ev,()=>clearTimeout(_bmLp)));
+$('#bmList').addEventListener('click',e=>{ if(_bmLpFired){_bmLpFired=false;return;} const row=e.target.closest('.bmrow'); if(!row)return; const uid=Number(row.dataset.uid); if(e.target.closest('[data-act="del"]')){delBookmark(uid);return;} if(e.target.closest('[data-act="over"]')){overwriteBookmark(uid);return;} loadBookmark(uid); });
+$('#bmEditList').addEventListener('click',e=>{
+  const row=e.target.closest('.bmerow'); if(!row)return; const idx=Number(row.dataset.idx); const x=bmEditData[idx]; if(!x)return;
+  const t=e.target.closest('[data-act]'); const act=t?t.dataset.act:null;
+  if(act==='inc')x.qty=Math.min(99,(x.qty||1)+1);
+  else if(act==='dec')x.qty=Math.max(1,(x.qty||1)-1);
+  else if(act==='rm')bmEditData.splice(idx,1);
+  else return;
+  renderBmEditList();
+});
+$('#bmEditOver').addEventListener('click',()=>{
+  const data=catalog.filter(i=>!i.isAlert&&i.qty>0).map(i=>({uid:i.uid,name:i.name,product:i.product||'',qty:i.qty}));
+  if(!data.length){toast('「買うもの」が空だよ（編集で個数をつけてね）');return;}
+  bmEditData=data; renderBmEditList(); toast('今の内容を反映（保存で確定）');
+});
+$('#bmEditSave').addEventListener('click',()=>{
+  const b=bookmarks.find(x=>x.uid===bmEditUid); if(!b){closeBmEdit();return;}
+  let name=$('#bmEditName').value.trim(); if(!name)name=b.name||'(名前なし)';
+  b.name=name; b.data=bmEditData.map(x=>({...x}));
+  sbBookmarkUpdate(bmEditUid,{name:b.name,data:b.data});
+  saveLocal(); renderBookmarks(); closeBmEdit(); toast('保存しました');
+});
+$('#bmEditDelete').addEventListener('click',()=>{
+  const uid=bmEditUid,b=bookmarks.find(x=>x.uid===uid); if(!b)return;
+  askConfirm('ブックマーク削除',`「${b.name}」を削除します`,()=>{ delBookmark(uid); closeBmEdit(); });
+});
+$('#bmEditCancel').addEventListener('click',closeBmEdit);
+$('#bmEditBg').addEventListener('click',closeBmEdit);
 $('#keepToggle').addEventListener('click',()=>{editKeep=!editKeep;renderKeepBtn();});
 $('#hideToggle').addEventListener('click',()=>{editHidden=!editHidden;renderHideBtn();});
 $('#loadKeepBtn').addEventListener('click',()=>openImport({type:'keep'},'定番（★）を編集に取り込みます。'));
