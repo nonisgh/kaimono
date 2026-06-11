@@ -619,7 +619,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-195657';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-200712';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1284,7 +1284,7 @@ function jumpToZone(areaSel,code){
   setCur(code);                              // 目的地を即ハイライト
 }
 let jumpAnchor=localStorage.getItem('kaimono.jumpanchor')||'mid';   // top=上部 / mid=やや下（既定）
-function anchorOffset(){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150; return stick + (jumpAnchor==='mid'?Math.round(window.innerHeight*0.30):0); }
+function anchorOffset(){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150; return stick + (jumpAnchor==='mid'?Math.round(window.innerHeight*0.20):0); }
 function applyJumpAnchor(){ document.querySelectorAll('#jumpAnchorSeg button').forEach(b=>b.classList.toggle('on',b.dataset.ja===jumpAnchor)); const v=$('#jumpAnchorVal'); if(v)v.textContent=(jumpAnchor==='mid'?'やや下':'上部'); }
 function setCur(code){ const c=curArea(); if(!c)return; const bar=$(c.bar); if(bar)bar.querySelectorAll('.jchip').forEach(ch=>ch.classList.toggle('cur',ch.dataset.jz===code)); updateMiniCur(code); }
 function layoutSticky(){
