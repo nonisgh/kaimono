@@ -587,7 +587,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-065540';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-065847';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1402,22 +1402,22 @@ function armFind(find){                                       // バー内にN�
 let _selZone=null;
 function setupPaint(barSel,areaSel,findSel){
   const bar=$(barSel); if(!bar)return;
-  let painting=false,moved=false,maybeConfirm=false;
+  let painting=false;
   const chipAt=(x,y)=>{ const el=document.elementFromPoint(x,y); return el&&bar.contains(el)?el.closest('.jchip'):null; };
   const select=chip=>{ if(!chip)return; bar.querySelectorAll('.jchip.sel').forEach(c=>c.classList.remove('sel')); chip.classList.add('sel'); _selZone=chip.dataset.jz; };
   bar.addEventListener('pointerdown',e=>{
     const chip=e.target.closest('.jchip'); if(!chip)return;
-    painting=true; moved=false; maybeConfirm=(chip.dataset.jz===_selZone);   // 選択中のチップを押した＝確定候補
-    select(chip); try{bar.setPointerCapture(e.pointerId);}catch(_){}
+    painting=true; select(chip); try{bar.setPointerCapture(e.pointerId);}catch(_){}
     armFind($(findSel));
   });
   bar.addEventListener('pointermove',e=>{
     if(!painting)return;
     const chip=chipAt(e.clientX,e.clientY);
-    if(chip&&chip.dataset.jz!==_selZone){ moved=true; maybeConfirm=false; select(chip); }   // なぞって選択（ペイント）
+    if(chip&&chip.dataset.jz!==_selZone) select(chip);                 // なぞって選択（ペイント）
   });
   const end=()=>{ if(!painting)return; painting=false;
-    if(maybeConfirm&&!moved){ jumpToZone(areaSel,_selZone); armFind($(findSel)); }   // 選択中をタップ＝確定（移動）
+    if(_selZone) jumpToZone(areaSel,_selZone);                          // 離したら選択中へ確定（移動）
+    armFind($(findSel));
   };
   bar.addEventListener('pointerup',end);
   bar.addEventListener('pointercancel',()=>{painting=false;});
