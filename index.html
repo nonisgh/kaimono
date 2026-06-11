@@ -306,7 +306,10 @@
   body.fs header{display:none !important;}
   body.fs .wrap{padding-top:8px;}
   body.fs .srow{padding:18px 16px;} body.fs .srow .nm{font-size:21px;}
-  /* リバース（下から積む）*/
+  /* タップモード（下から積む）*/
+  .modeseg{display:inline-flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;background:var(--card);flex:none;}
+  .modeseg button{border:0;background:transparent;font-family:inherit;font-weight:800;font-size:12px;padding:7px 12px;color:var(--ink-soft);cursor:pointer;line-height:1;}
+  .modeseg button.on{background:var(--green);color:#fff;}
   body.rev #listTab{display:flex;flex-direction:column;}
   body.rev #footer{order:0;position:static;padding:0;background:none;margin-bottom:10px;}
   body.rev #footer .checkout{box-shadow:0 3px 0 var(--green-d);}
@@ -363,7 +366,7 @@
       <div class="count">のこり <b id="remain">0</b> 品 ・ 合計(税込) <span class="yen" id="listTotal">¥0</span></div>
       <div style="display:flex;gap:6px;">
         <select class="sortsel" id="listSort"></select>
-        <button class="ghostbtn" id="revBtn">🔄 下から</button>
+        <div class="modeseg" id="modeSeg"><button data-rev="1">タップ</button><button data-rev="0">通常</button></div>
         <button class="ghostbtn" id="fsEnter">⛶ 全画面</button>
       </div>
     </div>
@@ -588,7 +591,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-071129';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-073518';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -717,7 +720,7 @@ let editingAlert=null,aZone='その他',aShow=true;   // アラート編集中�
 let bookmarks=[];                       // {uid,name,data:[{uid,name,qty}],created_at} リストの買うものプリセット
 let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editLock=false,editingNew=false,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false,editFilter='',itemFilter='';
 let itemSortables=[],zoneSortable=null,confirmCb=null,histSort='pick';
-let revMode=(localStorage.getItem('kaimono.rev')??'0')==='1';
+let revMode=(localStorage.getItem('kaimono.rev')??'1')==='1';   // デフォルト=タップモード（下から）
 let revPad=parseFloat(localStorage.getItem('kaimono.revpad'))||24; // 表示位置(vh)・端末ごと（同期しない）
 function applyRevPad(){ document.documentElement.style.setProperty('--revpad',revPad+'vh'); }
 
@@ -855,7 +858,7 @@ function subscribe(){
 }
 async function init(){
   initDB();
-  applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide();   // 保存済みのリバース設定・バッジ濃さを反映
+  applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さを反映
   loadLocal(); renderActive(); preloadImages();      // まずローカルで即表示＋写真先読み
   if(SB.ready()){
     try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); }
@@ -1095,7 +1098,7 @@ function applyReverse(){
   document.body.classList.toggle('rev',revMode);
   const f=$('#footer'),lt=$('#listTab');
   if(revMode){ lt.insertBefore(f,lt.firstChild); } else { document.body.appendChild(f); }
-  const b=$('#revBtn'); if(b)b.classList.toggle('on',revMode);
+  const seg=$('#modeSeg'); if(seg)seg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',(b.dataset.rev==='1')===revMode));
 }
 function scrollBottom(){ requestAnimationFrame(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})); }
 function renderActive(){if(activeTab==='list')renderList();else if(activeTab==='edit')renderEdit();else if(activeTab==='item')renderItems();else renderHist();saveLocal();}
@@ -1626,7 +1629,7 @@ $('#fsEnter').addEventListener('click',toggleFs);
 $('#revFs').addEventListener('click',toggleFs);
 $('#revUp').addEventListener('click',()=>{revPad=Math.min(52,revPad+4);localStorage.setItem('kaimono.revpad',revPad);applyRevPad();scrollBottom();});
 $('#revDown').addEventListener('click',()=>{revPad=Math.max(16,revPad-4);localStorage.setItem('kaimono.revpad',revPad);applyRevPad();scrollBottom();});
-$('#revBtn').addEventListener('click',()=>{revMode=!revMode;localStorage.setItem('kaimono.rev',revMode?'1':'0');applyReverse();renderList();if(revMode)scrollBottom();});
+$('#modeSeg').addEventListener('click',e=>{const b=e.target.closest('button[data-rev]');if(!b)return;const want=b.dataset.rev==='1';if(want===revMode)return;revMode=want;localStorage.setItem('kaimono.rev',revMode?'1':'0');applyReverse();renderList();if(revMode)scrollBottom();});
 $('#mergeDayBtn').addEventListener('click',mergeSameDay);
 $('#histArea').addEventListener('click',e=>{
   const imp=e.target.closest('.histimp');
