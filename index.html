@@ -619,7 +619,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-204803';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-205040';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1283,7 +1283,7 @@ function jumpToZone(areaSel,code){
   const y=el.getBoundingClientRect().top+window.scrollY-anchorOffset();   // やや下に来るよう手動スクロール
   window.scrollTo({top:Math.max(0,y),behavior:'smooth'});
   setCur(code);                              // 目的地を即ハイライト
-  afterScroll(()=>{ const b=el.querySelector('.grphead .badge'); if(b&&b.animate){ b.style.transformOrigin='center'; b.animate([{transform:'scale(1)'},{transform:'scale(1.45)',offset:.25},{transform:'scale(.85)',offset:.55},{transform:'scale(1.15)',offset:.78},{transform:'scale(1)'}],{duration:560,easing:'cubic-bezier(.34,1.56,.64,1)'}); } });  // 止まってからボヨン
+  afterScroll(()=>{ const b=el.querySelector('.grphead .badge'); if(b&&b.animate){ b.style.transformOrigin='center'; b.animate([{transform:'scale(1)'},{transform:'scale(1.36)',offset:.25},{transform:'scale(.88)',offset:.55},{transform:'scale(1.12)',offset:.78},{transform:'scale(1)'}],{duration:540,easing:'cubic-bezier(.34,1.56,.64,1)'}); } });  // 止まってからボヨン
 }
 function afterScroll(cb){                     // スムーススクロールが止まったら実行（最大~1.6s）
   let last=window.scrollY,still=0,tries=0;
