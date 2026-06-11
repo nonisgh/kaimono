@@ -624,7 +624,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-221719';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-222435';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1288,7 +1288,18 @@ function jumpToZone(areaSel,code){
   const y=el.getBoundingClientRect().top+window.scrollY-anchorOffset();   // やや下に来るよう手動スクロール
   window.scrollTo({top:Math.max(0,y),behavior:'smooth'});
   setCur(code);                              // 目的地を即ハイライト
-  afterScroll(()=>{ const b=el.querySelector('.grphead .badge'); if(b&&b.animate){ b.style.transformOrigin='center'; b.animate([{transform:'scale(1)'},{transform:'scale(1.36)',offset:.25},{transform:'scale(.88)',offset:.55},{transform:'scale(1.12)',offset:.78},{transform:'scale(1)'}],{duration:540,easing:'cubic-bezier(.34,1.56,.64,1)'}); } });  // 止まってからボヨン
+  afterScroll(()=>{
+    const b=el.querySelector('.grphead .badge'); if(b&&b.animate){ b.style.transformOrigin='center'; b.animate([{transform:'scale(1)'},{transform:'scale(1.36)',offset:.25},{transform:'scale(.88)',offset:.55},{transform:'scale(1.12)',offset:.78},{transform:'scale(1)'}],{duration:540,easing:'cubic-bezier(.34,1.56,.64,1)'}); }  // 止まってからボヨン
+    flashZone(el,code);                        // 売り場の領域をその色で一瞬フラッシュ
+  });
+}
+function flashZone(el,code){                    // レイアウト非依存：重ねた半透明オーバーレイを一瞬出して消す
+  const z=zoneOf(code),f=zoneColorOf(z); if(!f||!el.animate)return;
+  const r=el.getBoundingClientRect(); if(r.height<=0)return;
+  const ov=document.createElement('div');
+  ov.style.cssText=`position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background:${hexA(f.ink,.22)};border:2px solid ${hexA(f.ink,.5)};border-radius:12px;pointer-events:none;z-index:30;`;
+  document.body.appendChild(ov);
+  ov.animate([{opacity:1},{opacity:1,offset:.3},{opacity:0}],{duration:620,easing:'ease-out'}).onfinish=()=>ov.remove();
 }
 function afterScroll(cb){                     // 動いて減速し“止まりかけ”た所＝止まる約0.1s前で実行（最大~1.6s）
   let last=window.scrollY,fast=false,tries=0;
