@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>おかいものメモ（β版）</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='15'%20fill='%237aa252'/%3E%3Cg%20fill='none'%20stroke='%23fff'%20stroke-width='4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M12%2016h6l4.6%2022h21'/%3E%3Cpath%20d='M20%2021h31l-4%2013H23.5'/%3E%3C/g%3E%3Ccircle%20cx='25'%20cy='45.5'%20r='3.6'%20fill='%23fff'/%3E%3Ccircle%20cx='43'%20cy='45.5'%20r='3.6'%20fill='%23fff'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -538,6 +541,20 @@
 </div>
 
 <script>
+const APP_VER='20260611-003927';                 // ビルド毎に自動で更新される
+(function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
+  function check(){
+    fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
+      .then(r=>r.text())
+      .then(t=>{ const m=t.match(/APP_VER='([^']+)'/); if(m&&m[1]!==APP_VER){ location.replace(location.pathname+'?v='+encodeURIComponent(m[1])); } })
+      .catch(()=>{});
+  }
+  let last=0;
+  function maybe(){ const n=Date.now(); if(n-last<8000)return; last=n; check(); }
+  window.addEventListener('load',maybe);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden)maybe(); });
+  window.addEventListener('focus',maybe);
+})();
 /* ===== 色パレット ===== */
 const FAM={
   paper:{bg:'#eceef0',ink:'#5b6470'}, veg:{bg:'#e6efe0',ink:'#456b3c'}, bread:{bg:'#f5ead6',ink:'#9a6f2e'},
