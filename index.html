@@ -563,12 +563,9 @@
       <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">チップを選んで指を離したあと、移動バーをたたむまでの時間。「離した瞬間」＝選んだら即たたむ／「たたまない」＝開いたまま</div>
     </div>
     <div style="margin-top:14px;">
-      <label style="display:block;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px;">🎯 移動先の表示位置 <span id="jumpAnchorVal" style="color:var(--ink-soft);font-weight:700;font-size:12px;"></span></label>
-      <div class="cfgseg" id="jumpAnchorSeg">
-        <button data-ja="top">上部</button>
-        <button data-ja="mid">やや下</button>
-      </div>
-      <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">チップで移動したとき、その売り場の先頭を画面のどこに表示するか。「やや下」＝少し下げて見やすく</div>
+      <label style="display:block;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px;">🎯 移動先の表示位置 <span id="jumpFracVal" style="color:var(--ink-soft);font-weight:700;font-size:12px;"></span></label>
+      <input id="jumpFrac" type="range" min="0" max="80" step="1" style="width:100%;">
+      <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">チップで移動したとき、その売り場の先頭を画面のどこに表示するか。0%＝上のタブ直下、上げるほど下（タブ〜下バーの間での割合）</div>
     </div>
   </div>
   <div class="sheetbtns" style="margin-top:12px;"><button class="b-done" id="zoneDone">とじる</button></div>
@@ -619,7 +616,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-213031';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-213413';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1018,7 +1015,7 @@ function subscribe(){
 async function init(){
   if(DEMO){ document.body.classList.add('demo'); const sub=document.querySelector('header .sub'); if(sub)sub.textContent='🧪 見本モード（保存はこの端末だけ）'; const ic=document.querySelector('#syncDot .ic'); if(ic)ic.textContent='🧪'; }
   if(!DEMO) initDB();                                  // 見本モードではDBにつながない
-  applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide(); applyJumpAnchor();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さを反映
+  applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide(); applyJumpFrac();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さを反映
   loadLocal(); renderActive(); preloadImages();      // まずローカルで即表示＋写真先読み
   if(SB.ready()){
     try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); }
@@ -1293,15 +1290,15 @@ function afterScroll(cb){                     // 動いて減速し“止まり�
     requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
 }
-let jumpAnchor=localStorage.getItem('kaimono.jumpanchor')||'mid'; if(jumpAnchor==='center')jumpAnchor='mid';   // top=上部 / mid=やや下
+let jumpFrac=(()=>{ const f=localStorage.getItem('kaimono.jumpfrac'); if(f!=null)return Math.max(0,Math.min(80,parseFloat(f)||0)); const a=localStorage.getItem('kaimono.jumpanchor'); return a==='top'?0:a==='center'?42:34; })();   // 移動先位置（％：タブ〜下バーの割合）既定34
 function spanOffset(frac){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150;
   const c=curArea(); const find=c?$(c.area==='#editArea'?'#editFind':'#itemFind'):null;
   let barTop=window.innerHeight*0.9;
   if(find){ const r=find.getBoundingClientRect(); if(r.height)barTop=r.top; }
   return Math.round(stick+(barTop-stick)*frac);                  // 上のタブ〜下のバーの間の割合位置
 }
-function anchorOffset(){ if(jumpAnchor==='mid')return spanOffset(0.34); return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150; }
-function applyJumpAnchor(){ document.querySelectorAll('#jumpAnchorSeg button').forEach(b=>b.classList.toggle('on',b.dataset.ja===jumpAnchor)); const v=$('#jumpAnchorVal'); if(v)v.textContent=(jumpAnchor==='mid'?'やや下':'上部'); }
+function anchorOffset(){ return spanOffset(jumpFrac/100); }
+function applyJumpFrac(){ const s=$('#jumpFrac'),v=$('#jumpFracVal'); if(s)s.value=jumpFrac; if(v)v.textContent=jumpFrac+'%'; }
 function setCur(code){ const c=curArea(); if(!c)return; const bar=$(c.bar); if(bar)bar.querySelectorAll('.jchip').forEach(ch=>ch.classList.toggle('cur',ch.dataset.jz===code)); updateMiniCur(code); }
 function layoutSticky(){
   const hd=document.querySelector('header'); const h=hd?hd.offsetHeight:46;
@@ -1584,7 +1581,7 @@ function setZoneCode(i,newCode){
   recomputeZones();renderZoneAdmin();
 }
 let zoneSnap=new Map();
-function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();renderHapticBtn();applyBadgeAlpha();applyFindHide();applyJumpAnchor();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
+function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();renderHapticBtn();applyBadgeAlpha();applyFindHide();applyJumpFrac();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
 async function closeZoneAdmin(){
   $('#zoneBg').classList.remove('open');$('#zoneSheet').classList.remove('open');recomputeZones();
   if(SB.ready()){
@@ -2048,7 +2045,7 @@ $('#zoneDone').addEventListener('click',closeZoneAdmin);
 $('#hapticToggle').addEventListener('click',()=>{hapticOn=!hapticOn;localStorage.setItem('kaimono.haptic',hapticOn?'1':'0');renderHapticBtn();if(hapticOn)haptic('done');});
 $('#badgeAlpha').addEventListener('input',e=>{badgeAlpha=parseInt(e.target.value,10)||0;localStorage.setItem('kaimono.badgealpha',String(badgeAlpha));applyBadgeAlpha();});
 $('#findHide').addEventListener('input',e=>{const i=parseInt(e.target.value,10)||0;findHideSec=(HIDE_OPTS[i]||HIDE_OPTS[0]).v;localStorage.setItem('kaimono.findhide',String(findHideSec));applyFindHide();});
-document.querySelectorAll('#jumpAnchorSeg button').forEach(b=>b.addEventListener('click',()=>{jumpAnchor=b.dataset.ja;localStorage.setItem('kaimono.jumpanchor',jumpAnchor);applyJumpAnchor();}));
+$('#jumpFrac').addEventListener('input',e=>{jumpFrac=parseInt(e.target.value,10)||0;localStorage.setItem('kaimono.jumpfrac',String(jumpFrac));applyJumpFrac();});
 $('#zoneBg').addEventListener('click',closeZoneAdmin);
 $('#zAddBtn').addEventListener('click',()=>{
   const code=$('#zAddCode').value.trim(),label=$('#zAddLabel').value.trim();
