@@ -232,7 +232,7 @@
   .jchip{flex:none;border-radius:999px;padding:5px 12px;font-family:inherit;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;line-height:1;transition:.1s;}
   .jchip:active{transform:scale(.93);}
   .jchip.off{opacity:.32;}
-  .jchip.sel{outline:3px solid var(--ink);outline-offset:1px;transform:scale(1.1);box-shadow:0 4px 12px -3px rgba(0,0,0,.4);position:relative;z-index:1;}
+  .jchip.sel{outline:2.5px solid var(--green-d);outline-offset:1px;}
   .grp{scroll-margin-top:var(--stick,150px);}
   /* 品目行：写真ありの目印 */
   .hasimg{flex:none;font-size:12px;opacity:.6;margin:0 1px;}
@@ -587,7 +587,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-070338';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-070641';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
