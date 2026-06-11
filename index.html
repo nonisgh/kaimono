@@ -556,8 +556,8 @@
     </div>
     <div style="margin-top:14px;">
       <label style="display:block;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px;">⏱ 移動バーが自動でたたむまで <span id="findHideVal" style="color:var(--ink-soft);font-weight:700;font-size:12px;"></span></label>
-      <input id="findHide" type="range" min="0" max="15" step="1" style="width:100%;">
-      <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">編集・品目の移動バーを開いたまま放置したとき、何秒でたたむか（0＝たたまない）</div>
+      <input id="findHide" type="range" min="0" max="8" step="1" style="width:100%;">
+      <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">チップを選んで指を離したあと、移動バーをたたむまでの時間。「離した瞬間」＝選んだら即たたむ／「たたまない」＝開いたまま</div>
     </div>
   </div>
   <div class="sheetbtns" style="margin-top:12px;"><button class="b-done" id="zoneDone">とじる</button></div>
@@ -608,7 +608,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-122403';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-123537';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1472,8 +1472,10 @@ function closeImg(){ $('#imgPop').classList.remove('open'); }
 $('#imgPop').addEventListener('click',closeImg);
 let hapticOn=(localStorage.getItem('kaimono.haptic')??'1')==='1';
 let badgeAlpha=parseInt(localStorage.getItem('kaimono.badgealpha')??'8',10);
-let findHideSec=parseInt(localStorage.getItem('kaimono.findhide')??'5',10);
-function applyFindHide(){ const s=$('#findHide'),v=$('#findHideVal'); if(s)s.value=findHideSec; if(v)v.textContent=findHideSec>0?findHideSec+'秒':'たたまない'; }
+const HIDE_OPTS=[{v:0,label:'たたまない'},{v:5,label:'5秒'},{v:4,label:'4秒'},{v:3,label:'3秒'},{v:2,label:'2秒'},{v:1,label:'1秒'},{v:0.5,label:'0.5秒'},{v:0.1,label:'0.1秒'},{v:-1,label:'離した瞬間'}];
+let findHideSec=parseFloat(localStorage.getItem('kaimono.findhide')??'5');
+function hideIdx(){ const i=HIDE_OPTS.findIndex(o=>o.v===findHideSec); return i<0?1:i; }
+function applyFindHide(){ const s=$('#findHide'),v=$('#findHideVal'),i=hideIdx(); if(s)s.value=i; if(v)v.textContent=HIDE_OPTS[i].label; }
 function applyBadgeAlpha(){ document.documentElement.style.setProperty('--badge-a',(badgeAlpha/100).toFixed(3)); const s=$('#badgeAlpha'),v=$('#badgeAlphaVal'); if(s)s.value=badgeAlpha; if(v)v.textContent=badgeAlpha+'%'; }
 function haptic(kind){
   if(!hapticOn)return;
@@ -1617,7 +1619,8 @@ function setupPaint(barSel,areaSel,findSel){
       $(findSel).classList.remove('open'); _selZone=null; _confirmedZone=null; clearTimeout(_findTimer); layoutSticky(); return;
     }
     if(_selZone){ jumpToZone(areaSel,_selZone); _confirmedZone=_selZone; }   // 離したら選択中へ確定（移動）
-    armFind($(findSel));                                               // 離した時点から再カウント
+    if(findHideSec===-1){ const f=$(findSel); clearTimeout(_findTimer); f.classList.add('collapsing'); setTimeout(()=>{f.classList.remove('collapsing','open');_selZone=null;_confirmedZone=null;layoutSticky();},220); }   // 離した瞬間モード
+    else armFind($(findSel));                                               // 離した時点から再カウント
   };
   bar.addEventListener('pointerup',end);
   bar.addEventListener('pointercancel',()=>{painting=false;_painting=false;hidePaintLabel();armFind($(findSel));});
@@ -2010,7 +2013,7 @@ $('#gearBtn').addEventListener('click',openZoneAdmin);
 $('#zoneDone').addEventListener('click',closeZoneAdmin);
 $('#hapticToggle').addEventListener('click',()=>{hapticOn=!hapticOn;localStorage.setItem('kaimono.haptic',hapticOn?'1':'0');renderHapticBtn();if(hapticOn)haptic('done');});
 $('#badgeAlpha').addEventListener('input',e=>{badgeAlpha=parseInt(e.target.value,10)||0;localStorage.setItem('kaimono.badgealpha',String(badgeAlpha));applyBadgeAlpha();});
-$('#findHide').addEventListener('input',e=>{findHideSec=parseInt(e.target.value,10)||0;localStorage.setItem('kaimono.findhide',String(findHideSec));applyFindHide();});
+$('#findHide').addEventListener('input',e=>{const i=parseInt(e.target.value,10)||0;findHideSec=(HIDE_OPTS[i]||HIDE_OPTS[0]).v;localStorage.setItem('kaimono.findhide',String(findHideSec));applyFindHide();});
 $('#zoneBg').addEventListener('click',closeZoneAdmin);
 $('#zAddBtn').addEventListener('click',()=>{
   const code=$('#zAddCode').value.trim(),label=$('#zAddLabel').value.trim();
