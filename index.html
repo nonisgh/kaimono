@@ -32,6 +32,7 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   body{-webkit-user-select:none;-moz-user-select:none;user-select:none;-webkit-touch-callout:none;}
   input,textarea,[contenteditable]{-webkit-user-select:text;-moz-user-select:text;user-select:text;-webkit-touch-callout:default;}
+  html{background:#fff8ea;}
   html,body{margin:0;padding:0;}
   body{font-family:'Zen Maru Gothic',system-ui,sans-serif;
     background:radial-gradient(120% 80% at 50% -10%, #fff8ea 0%, var(--paper) 55%) fixed;
@@ -599,7 +600,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-103329';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-110819';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
