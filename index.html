@@ -93,15 +93,20 @@
   .irow.alert .aico{font-size:16px;flex:none;}
   .irow.alert .drag{color:rgba(255,255,255,.75);}
   .irow.alert .bdg{box-shadow:0 0 0 1.5px rgba(255,255,255,.5);}
-  .bmrow{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:12px 12px;margin-bottom:8px;cursor:pointer;transition:.12s;box-shadow:0 2px 0 rgba(0,0,0,.04);}
+  .bmrow{display:flex;flex-direction:column;align-items:stretch;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:13px;padding:11px 12px;margin-bottom:8px;cursor:pointer;transition:.12s;box-shadow:0 2px 0 rgba(0,0,0,.04);border-left-width:1.5px;}
   .bmrow:hover{background:#f3ecd9;border-color:var(--green);}
   .bmrow:active{transform:scale(.99);background:#ece2cb;box-shadow:none;}
-  .bmrow .bmnm{flex:1;min-width:0;font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bmtop{display:flex;align-items:center;gap:8px;}
+  .bmbtns{display:flex;align-items:center;gap:6px;}
+  .bmrow .bmnm{flex:1;min-width:0;font-weight:800;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .bmrow .bmmeta{font-size:11px;color:var(--ink-soft);flex:none;}
-  .bmrow .bmgo{flex:none;background:var(--green);color:#fff;font-size:12px;font-weight:800;padding:5px 11px;border-radius:999px;white-space:nowrap;opacity:0;transform:translateX(6px);transition:.14s;pointer-events:none;}
-  .bmrow:hover .bmgo,.bmrow:active .bmgo{opacity:1;transform:none;}
-  .bmrow .bmover{flex:none;border:1.5px solid var(--line);background:var(--card);color:var(--green-d);font-family:inherit;font-weight:800;font-size:11px;padding:6px 9px;border-radius:999px;cursor:pointer;white-space:nowrap;}
-  .bmrow .bmover:active{transform:scale(.94);background:#ece2cb;}
+  .bmrow .bmgo{flex:1;text-align:left;background:none;border:0;color:var(--green-d);font-family:inherit;font-size:12px;font-weight:800;padding:2px 0;white-space:nowrap;cursor:pointer;}
+  .bmrow .bmover,.bmrow .bmadd{flex:none;border:1.5px solid var(--line);background:var(--card);color:var(--green-d);font-family:inherit;font-weight:800;font-size:11px;padding:6px 10px;border-radius:999px;cursor:pointer;white-space:nowrap;}
+  .bmrow .bmadd{border-color:var(--green);color:#fff;background:var(--green);}
+  .bmrow .bmover:active,.bmrow .bmadd:active{transform:scale(.94);}
+  .swatches{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px;}
+  .swatch{width:30px;height:30px;border-radius:9px;border:2px solid transparent;cursor:pointer;display:grid;place-items:center;font-size:13px;color:var(--ink-soft);background:var(--card);}
+  .swatch.on{border-color:var(--ink);box-shadow:0 0 0 2px #fff inset;}
   .bmerow{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--line);border-radius:11px;padding:8px 10px;margin-bottom:7px;}
   .bmerow .bmenm{flex:1;min-width:0;font-weight:800;font-size:13px;overflow:hidden;}
   .bmerow .bmenm .prod{font-size:11px;font-weight:600;color:var(--ink-soft);margin-top:1px;}
@@ -539,8 +544,10 @@
   <div class="grab"></div>
   <h3>🔖 ブックマークを編集</h3>
   <div class="addbar" style="margin-bottom:10px;"><input id="bmEditName" type="text" placeholder="名前" enterkeyhint="done"></div>
-  <div id="bmEditList" style="max-height:44vh;overflow-y:auto;"></div>
-  <button class="ghostbtn" id="bmEditOver" style="margin-top:8px;width:100%;">⤓ 今の「買うもの」で中身を上書き</button>
+  <label style="display:block;font-size:12px;font-weight:800;color:var(--ink);margin:0 2px 2px;">🎨 色</label>
+  <div class="swatches" id="bmEditSw" style="margin-bottom:10px;"></div>
+  <div id="bmEditList" style="max-height:38vh;overflow-y:auto;"></div>
+  <div style="display:flex;gap:8px;margin-top:8px;"><button class="ghostbtn" id="bmEditAdd" style="flex:1;">＋ 今の内容を追加</button><button class="ghostbtn" id="bmEditOver" style="flex:1;">⤓ 上書き</button></div>
   <div class="sheetbtns" style="margin-top:10px;"><button class="b-del" id="bmEditDelete">削除</button><button class="b-cancel" id="bmEditCancel">やめる</button><button class="b-save" id="bmEditSave">保存</button></div>
 </div>
 <div class="sheetbg" id="zoneBg"></div>
@@ -616,7 +623,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-213413';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-214817';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -942,7 +949,7 @@ function sbLogDelete(bid){ if(!SB.ready())return; syncPulse(); SB.client.from('p
 async function loadZones(){ const {data,error}=await SB.client.from('zones').select('*').order('sort_order'); if(error){console.error(error);return;} if(data&&data.length){ const seen=new Set(),arr=[]; for(const r of data){ if(seen.has(r.code))continue; seen.add(r.code); arr.push({code:r.code,label:r.label,fam:r.color}); } ZONES=arr; if(!ZONES.some(z=>z.code==='その他'))ZONES.push({code:'その他',label:'その他',fam:'etc'}); recomputeZones(); } }
 async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden,got:r.got||0,picked_at:r.picked_at||null,isAlert:(!!r.is_alert||r.category==='アラート'),product:r.product||'',image:r.image_path||''})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } preloadImages(); }
 async function loadHistory(){ const {data,error}=await SB.client.from('purchase_log').select('*').order('archived_at',{ascending:false}); if(error){console.error(error);return;} const map=new Map(); for(const r of data){ if(!map.has(r.batch_id))map.set(r.batch_id,{bid:r.batch_id,date:r.label,list:[]}); map.get(r.batch_id).list.push({name:r.qty>1?`${r.name} ×${r.qty}`:r.name,zone:r.zone_code||null,itemId:r.item_id??null,picked:r.picked_at||null}); } history=[...map.values()]; }
-async function loadBookmarks(){ if(!SB.ready())return; const {data,error}=await SB.client.from('bookmarks').select('*').order('created_at',{ascending:false}); if(error){console.warn('bookmarks 読み込み不可（テーブル未作成かも）',error.message);return;} bookmarks=data.map(r=>({uid:Number(r.id),name:r.name||'',data:Array.isArray(r.data)?r.data:[],created_at:r.created_at})); }
+async function loadBookmarks(){ if(!SB.ready())return; const {data,error}=await SB.client.from('bookmarks').select('*').order('created_at',{ascending:false}); if(error){console.warn('bookmarks 読み込み不可（テーブル未作成かも）',error.message);return;} bookmarks=data.map(r=>({uid:Number(r.id),name:r.name||'',data:Array.isArray(r.data)?r.data:[],color:r.color||'',created_at:r.created_at})); }
 async function sbBookmarkInsert(name,data){ if(!SB.ready())return null; syncPulse(); const {data:d,error}=await SB.client.from('bookmarks').insert({name,data}).select().single(); if(error){console.error(error);return null;} return d.id; }
 function sbBookmarkDelete(uid){ if(!SB.ready())return; syncPulse(); SB.client.from('bookmarks').delete().eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
 function sbBookmarkUpdate(uid,fields){ if(!SB.ready())return; syncPulse(); SB.client.from('bookmarks').update(fields).eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
@@ -1290,7 +1297,7 @@ function afterScroll(cb){                     // 動いて減速し“止まり�
     requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
 }
-let jumpFrac=(()=>{ const f=localStorage.getItem('kaimono.jumpfrac'); if(f!=null)return Math.max(0,Math.min(80,parseFloat(f)||0)); const a=localStorage.getItem('kaimono.jumpanchor'); return a==='top'?0:a==='center'?42:34; })();   // 移動先位置（％：タブ〜下バーの割合）既定34
+let jumpFrac=(()=>{ const f=localStorage.getItem('kaimono.jumpfrac'); if(f!=null)return Math.max(0,Math.min(80,parseFloat(f)||0)); const a=localStorage.getItem('kaimono.jumpanchor'); return a==='top'?0:a==='center'?42:55; })();   // 移動先位置（％：タブ〜下バーの割合）既定55
 function spanOffset(frac){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150;
   const c=curArea(); const find=c?$(c.area==='#editArea'?'#editFind':'#itemFind'):null;
   let barTop=window.innerHeight*0.9;
@@ -1879,7 +1886,15 @@ function renderBookmarks(){
   if(!bookmarks.length){ el.innerHTML='<div class="bmempty">まだ ブックマークは ないよ</div>'; return; }
   el.innerHTML=bookmarks.map(b=>{
     const n=(b.data||[]).reduce((s,x)=>s+(x.qty||0),0);
-    return `<div class="bmrow" data-uid="${b.uid}"><span class="bmnm">${esc(b.name||'(名前なし)')}</span><span class="bmmeta">${(b.data||[]).length}品/${n}こ</span><span class="bmgo">→ 読込</span><button class="bmover" data-act="over">⤓ 上書き</button><button class="bmdel" data-act="del" aria-label="削除">✕</button></div>`;
+    const f=b.color&&FAM[b.color]?FAM[b.color]:null;
+    const style=f?`style="border-left:7px solid ${f.ink};background:${f.bg}"`:'';
+    return `<div class="bmrow" data-uid="${b.uid}" ${style}>`
+      +`<div class="bmtop"><span class="bmnm">${esc(b.name||'(名前なし)')}</span><span class="bmmeta">${(b.data||[]).length}品/${n}こ</span></div>`
+      +`<div class="bmbtns"><button class="bmgo" data-act="load">→ 読み込む</button>`
+      +`<button class="bmadd" data-act="add">＋ 追加</button>`
+      +`<button class="bmover" data-act="over">⤓ 上書き</button>`
+      +`<button class="bmdel" data-act="del" aria-label="削除">✕</button></div>`
+      +`</div>`;
   }).join('');
 }
 async function saveBookmark(){
@@ -1921,15 +1936,35 @@ function overwriteBookmark(uid){
     b.data=data; sbBookmarkUpdate(uid,{data}); saveLocal(); renderBookmarks(); toast(`「${b.name}」を上書きしました`);
   });
 }
-let bmEditUid=null,bmEditData=[];
+function mergeItemsInto(base,add){                                  // baseに addをマージ（同じ品名＋商品名は個数を合算）
+  const keyOf=x=>(x.name||'')+'\u0000'+(x.product||'');
+  const map=new Map(base.map(x=>[keyOf(x),{...x}]));
+  add.forEach(a=>{ const k=keyOf(a); if(map.has(k)){ const e=map.get(k); e.qty=Math.min(99,(e.qty||0)+(a.qty||0)); } else map.set(k,{...a}); });
+  return [...map.values()];
+}
+function mergeBookmark(uid){
+  const b=bookmarks.find(x=>x.uid===uid); if(!b)return;
+  const add=catalog.filter(i=>!i.isAlert&&i.qty>0).map(i=>({uid:i.uid,name:i.name,product:i.product||'',qty:i.qty}));
+  if(!add.length){toast('「買うもの」が空だよ（編集で個数をつけてね）');return;}
+  askConfirm('ブックマークに追加',`「${b.name}」に今の「買うもの」(${add.length}品)を足し込みます（同じ品は個数を合算）`,()=>{
+    b.data=mergeItemsInto(b.data||[],add); sbBookmarkUpdate(uid,{data:b.data}); saveLocal(); renderBookmarks(); toast(`「${b.name}」に追加しました`);
+  });
+}
+let bmEditUid=null,bmEditData=[],bmEditColor='';
 function openBmEdit(uid){
   const b=bookmarks.find(x=>x.uid===uid); if(!b)return;
-  bmEditUid=uid; bmEditData=(b.data||[]).map(x=>({...x}));
+  bmEditUid=uid; bmEditData=(b.data||[]).map(x=>({...x})); bmEditColor=b.color||'';
   $('#bmEditName').value=b.name||'';
-  renderBmEditList();
+  renderBmEditList(); renderBmSwatches();
   $('#bmEditBg').classList.add('open'); $('#bmEditSheet').classList.add('open');
 }
-function closeBmEdit(){ $('#bmEditBg').classList.remove('open'); $('#bmEditSheet').classList.remove('open'); bmEditUid=null; bmEditData=[]; }
+function closeBmEdit(){ $('#bmEditBg').classList.remove('open'); $('#bmEditSheet').classList.remove('open'); bmEditUid=null; bmEditData=[]; bmEditColor=''; }
+function renderBmSwatches(){
+  const el=$('#bmEditSw'); if(!el)return;
+  let html=`<div class="swatch ${bmEditColor?'':'on'}" data-c="" style="background:var(--paper);border-style:dashed;border-color:var(--line)">✕</div>`;
+  html+=PALETTE.map(k=>{const f=FAM[k];return `<div class="swatch ${bmEditColor===k?'on':''}" data-c="${k}" style="background:${f.bg}"><span style="color:${f.ink};font-weight:900">●</span></div>`;}).join('');
+  el.innerHTML=html;
+}
 function renderBmEditList(){
   const el=$('#bmEditList');
   if(!bmEditData.length){ el.innerHTML='<div class="bmempty">中身がありません（下のボタンで今の内容を取り込めます）</div>'; return; }
@@ -1948,7 +1983,7 @@ $('#bmList').addEventListener('pointerdown',e=>{
 });
 $('#bmList').addEventListener('pointermove',e=>{ if(_bmLpXY&&(Math.abs(e.clientX-_bmLpXY[0])>10||Math.abs(e.clientY-_bmLpXY[1])>10))clearTimeout(_bmLp); });
 ['pointerup','pointercancel','pointerleave'].forEach(ev=>$('#bmList').addEventListener(ev,()=>clearTimeout(_bmLp)));
-$('#bmList').addEventListener('click',e=>{ if(_bmLpFired){_bmLpFired=false;return;} const row=e.target.closest('.bmrow'); if(!row)return; const uid=Number(row.dataset.uid); if(e.target.closest('[data-act="del"]')){delBookmark(uid);return;} if(e.target.closest('[data-act="over"]')){overwriteBookmark(uid);return;} loadBookmark(uid); });
+$('#bmList').addEventListener('click',e=>{ if(_bmLpFired){_bmLpFired=false;return;} const row=e.target.closest('.bmrow'); if(!row)return; const uid=Number(row.dataset.uid); if(e.target.closest('[data-act="del"]')){delBookmark(uid);return;} if(e.target.closest('[data-act="over"]')){overwriteBookmark(uid);return;} if(e.target.closest('[data-act="add"]')){mergeBookmark(uid);return;} loadBookmark(uid); });
 $('#bmEditList').addEventListener('click',e=>{
   const row=e.target.closest('.bmerow'); if(!row)return; const idx=Number(row.dataset.idx); const x=bmEditData[idx]; if(!x)return;
   const t=e.target.closest('[data-act]'); const act=t?t.dataset.act:null;
@@ -1961,13 +1996,19 @@ $('#bmEditList').addEventListener('click',e=>{
 $('#bmEditOver').addEventListener('click',()=>{
   const data=catalog.filter(i=>!i.isAlert&&i.qty>0).map(i=>({uid:i.uid,name:i.name,product:i.product||'',qty:i.qty}));
   if(!data.length){toast('「買うもの」が空だよ（編集で個数をつけてね）');return;}
-  bmEditData=data; renderBmEditList(); toast('今の内容を反映（保存で確定）');
+  bmEditData=data; renderBmEditList(); toast('今の内容で置き換え（保存で確定）');
 });
+$('#bmEditAdd').addEventListener('click',()=>{
+  const add=catalog.filter(i=>!i.isAlert&&i.qty>0).map(i=>({uid:i.uid,name:i.name,product:i.product||'',qty:i.qty}));
+  if(!add.length){toast('「買うもの」が空だよ（編集で個数をつけてね）');return;}
+  bmEditData=mergeItemsInto(bmEditData,add); renderBmEditList(); toast('今の内容を追加（保存で確定）');
+});
+$('#bmEditSw').addEventListener('click',e=>{ const s=e.target.closest('.swatch'); if(!s)return; bmEditColor=s.dataset.c||''; renderBmSwatches(); });
 $('#bmEditSave').addEventListener('click',()=>{
   const b=bookmarks.find(x=>x.uid===bmEditUid); if(!b){closeBmEdit();return;}
   let name=$('#bmEditName').value.trim(); if(!name)name=b.name||'(名前なし)';
-  b.name=name; b.data=bmEditData.map(x=>({...x}));
-  sbBookmarkUpdate(bmEditUid,{name:b.name,data:b.data});
+  b.name=name; b.data=bmEditData.map(x=>({...x})); b.color=bmEditColor;
+  sbBookmarkUpdate(bmEditUid,{name:b.name,data:b.data,color:b.color});
   saveLocal(); renderBookmarks(); closeBmEdit(); toast('保存しました');
 });
 $('#bmEditDelete').addEventListener('click',()=>{
