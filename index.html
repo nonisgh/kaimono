@@ -36,6 +36,7 @@
   .logo{width:40px;height:40px;border-radius:12px;background:var(--green);color:#fff;display:grid;place-items:center;font-size:21px;box-shadow:0 3px 0 var(--green-d);transform:rotate(-4deg);}
   h1{font-size:20px;font-weight:900;margin:0;}
   .sub{font-size:11px;color:var(--ink-soft);margin-top:1px;}
+  body.demo .sub{color:var(--hot);font-weight:800;}
   .gear{width:40px;height:40px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);font-size:19px;cursor:pointer;display:grid;place-items:center;}
   .gear:active{background:var(--paper2);}
   .headright{margin-left:auto;display:flex;align-items:center;gap:8px;}
@@ -591,7 +592,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-081158';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-081825';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -937,7 +938,10 @@ function syncRender(){ renderActive(); }
 function incoming(){ if(Date.now()-lastWrite>1500) syncPulseDown(); }
 
 /* ===== ローカル保存 & 書き込みキュー（テンポ優先） ===== */
-const LS={items:'kaimono.items',zones:'kaimono.zones',hist:'kaimono.history',bm:'kaimono.bookmarks'};
+const DEMO=new URLSearchParams(location.search).has('demo');   // ?demo=見本モード（Supabaseにつながず端末ローカルだけ）
+const LS=DEMO
+  ?{items:'kaimono.demo.items',zones:'kaimono.demo.zones',hist:'kaimono.demo.history',bm:'kaimono.demo.bookmarks'}
+  :{items:'kaimono.items',zones:'kaimono.zones',hist:'kaimono.history',bm:'kaimono.bookmarks'};
 let _saveT=null;
 function _doSaveLocal(){ try{ localStorage.setItem(LS.items,JSON.stringify(catalog)); localStorage.setItem(LS.zones,JSON.stringify(ZONES)); localStorage.setItem(LS.hist,JSON.stringify(history)); localStorage.setItem(LS.bm,JSON.stringify(bookmarks)); }catch(e){} }
 function saveLocal(){ if(_saveT)return; _saveT=setTimeout(()=>{ _saveT=null; _doSaveLocal(); },500); }   // まとめ書き＝操作の連打中はブロックしない
@@ -984,7 +988,8 @@ function subscribe(){
     .subscribe();
 }
 async function init(){
-  initDB();
+  if(DEMO){ document.body.classList.add('demo'); const sub=document.querySelector('header .sub'); if(sub)sub.textContent='🧪 見本モード（保存はこの端末だけ）'; const ic=document.querySelector('#syncDot .ic'); if(ic)ic.textContent='🧪'; }
+  if(!DEMO) initDB();                                  // 見本モードではDBにつながない
   applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さを反映
   loadLocal(); renderActive(); preloadImages();      // まずローカルで即表示＋写真先読み
   if(SB.ready()){
