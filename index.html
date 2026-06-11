@@ -122,6 +122,8 @@
   .grp{margin-top:15px;}
   .grphead{display:flex;align-items:center;gap:8px;margin:0 2px 7px;}
   .badge{font-size:12px;font-weight:900;padding:3px 9px;border-radius:8px;flex:none;}
+  @keyframes boyon{0%{transform:scale(1)}22%{transform:scale(1.25)}52%{transform:scale(.92)}76%{transform:scale(1.08)}100%{transform:scale(1)}}
+  .badge.boyon{display:inline-block;animation:boyon .5s ease-out;transform-origin:center;}
   .grphead .nm{font-size:12px;font-weight:700;color:var(--ink-soft);}
   .grphead .ln{flex:1;height:1.5px;background:var(--line);border-radius:2px;}
 
@@ -225,7 +227,7 @@
   .searchrow .clr{flex:none;border:none;background:transparent;font-size:15px;color:var(--ink-soft);cursor:pointer;padding:6px;}
   .jumprow{display:flex;align-items:center;gap:6px;}
   .minirow{display:flex;align-items:center;gap:6px;justify-content:space-between;}
-  .minicur{flex:0 1 auto;min-width:0;max-width:44%;border-radius:999px;padding:9px 14px;font-family:inherit;font-weight:800;font-size:14px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;text-align:center;}
+  .minicur{flex:0 1 auto;min-width:0;max-width:62%;border-radius:999px;padding:9px 26px;font-family:inherit;font-weight:800;font-size:14px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;text-align:center;}
   .minicur:active{transform:scale(.97);}
   .findbar .findfull{display:none;flex-direction:column;gap:7px;}
   .findbar.collapsing .findfull{animation:findbye .2s ease-in forwards;}
@@ -619,7 +621,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-201341';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-203148';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -643,6 +645,7 @@ const FAM={
   sand:{bg:'#efe6d2',ink:'#8a7338'}, coral:{bg:'#fbe1d6',ink:'#c25a3a'}, indigo:{bg:'#e1e2f5',ink:'#4148a0'},
 };
 const PALETTE=Object.keys(FAM);
+function hexA(hex,a){ const h=(hex||'').replace('#',''); if(h.length<6)return hex; const n=parseInt(h,16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
 function blend(hex,to,t){
   const a=hex.replace('#',''),b=to.replace('#','');
   const v=(s,o)=>parseInt(s.slice(o,o+2),16);
@@ -1282,6 +1285,7 @@ function jumpToZone(areaSel,code){
   const y=el.getBoundingClientRect().top+window.scrollY-anchorOffset();   // やや下に来るよう手動スクロール
   window.scrollTo({top:Math.max(0,y),behavior:'smooth'});
   setCur(code);                              // 目的地を即ハイライト
+  setTimeout(()=>{ const b=el.querySelector('.grphead .badge'); if(b){ b.classList.remove('boyon'); void b.offsetWidth; b.classList.add('boyon'); setTimeout(()=>b.classList.remove('boyon'),600); } },360);  // 到着したらボヨン
 }
 let jumpAnchor=localStorage.getItem('kaimono.jumpanchor')||'mid';   // top=上部 / mid=やや下（既定）
 function anchorOffset(){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150; return stick + (jumpAnchor==='mid'?Math.round(window.innerHeight*0.12):0); }
@@ -1293,13 +1297,13 @@ function layoutSticky(){
   document.documentElement.style.setProperty('--stick',(h+12)+'px');
 }
 function jumpDoc(where){ window.scrollTo({top: where==='top'?0:document.documentElement.scrollHeight, behavior:'smooth'}); }
-function updateMiniCur(code){                                 // ミニ行の現在地チップを更新
+function updateMiniCur(code){                                 // たたんだ状態の中央：現在地チップ（記号だけ）
   const c=curArea(); if(!c)return;
   const find=$(c.area==='#editArea'?'#editFind':'#itemFind'); if(!find)return;
   const mc=find.querySelector('.minicur'); if(!mc)return;
   if(!code){ mc.textContent='—'; mc.style.background='var(--card)'; mc.style.color='var(--ink)'; mc.style.borderColor='var(--line)'; return; }
   const z=zoneOf(code),f=zoneColorOf(z);
-  mc.textContent=z.code+'　'+(z.label||'');
+  mc.textContent=z.code;
   mc.style.background=f.bg; mc.style.color=f.ink; mc.style.borderColor=f.ink;
 }
 function curArea(){ return activeTab==='edit'?{area:'#editArea',bar:'#editJump',sort:editSort,ft:editFilter}:activeTab==='item'?{area:'#itemArea',bar:'#itemJump',sort:itemSort,ft:itemFilter}:null; }
@@ -1616,7 +1620,11 @@ function setupPaint(barSel,areaSel,findSel){
   };
   const select=chip=>{ if(!chip)return; bar.querySelectorAll('.jchip.sel').forEach(c=>c.classList.remove('sel')); chip.classList.add('sel'); _selZone=chip.dataset.jz; showPaintLabel(chip.dataset.jz); };
   const find=$(findSel), plabel=find?find.querySelector('.paintlabel'):null;
-  function showPaintLabel(code){ if(!plabel)return; const z=zoneOf(code); plabel.innerHTML=z?`<span class="plname">${esc(z.label||z.code)}</span><span class="plcode">${esc(z.code)}</span>`:''; find.classList.add('painting'); }
+  function showPaintLabel(code){ if(!plabel)return; const z=zoneOf(code); if(!z){find.classList.add('painting');return;}
+    const f=zoneColorOf(z);
+    plabel.style.background=hexA(f.bg,.82); plabel.style.color=f.ink;                 // その売り場（チップ）の色・半透明のまま
+    plabel.innerHTML=`<span class="plname">${esc(z.label||z.code)}</span><span class="plcode">${esc(z.code)}</span>`;
+    find.classList.add('painting'); }
   function hidePaintLabel(){ if(find)find.classList.remove('painting'); }
   bar.addEventListener('pointerdown',e=>{
     const chip=e.target.closest('.jchip')||nearestChip(e.clientX,e.clientY); if(!chip)return;
