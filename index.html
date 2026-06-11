@@ -122,8 +122,6 @@
   .grp{margin-top:15px;}
   .grphead{display:flex;align-items:center;gap:8px;margin:0 2px 7px;}
   .badge{font-size:12px;font-weight:900;padding:3px 9px;border-radius:8px;flex:none;}
-  @keyframes boyon{0%{transform:scale(1)}22%{transform:scale(1.25)}52%{transform:scale(.92)}76%{transform:scale(1.08)}100%{transform:scale(1)}}
-  .badge.boyon{display:inline-block;animation:boyon .5s ease-out;transform-origin:center;}
   .grphead .nm{font-size:12px;font-weight:700;color:var(--ink-soft);}
   .grphead .ln{flex:1;height:1.5px;background:var(--line);border-radius:2px;}
 
@@ -621,7 +619,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-203148';                 // ビルド毎に自動で更新される
+const APP_VER='20260611-204346';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1285,7 +1283,13 @@ function jumpToZone(areaSel,code){
   const y=el.getBoundingClientRect().top+window.scrollY-anchorOffset();   // やや下に来るよう手動スクロール
   window.scrollTo({top:Math.max(0,y),behavior:'smooth'});
   setCur(code);                              // 目的地を即ハイライト
-  setTimeout(()=>{ const b=el.querySelector('.grphead .badge'); if(b){ b.classList.remove('boyon'); void b.offsetWidth; b.classList.add('boyon'); setTimeout(()=>b.classList.remove('boyon'),600); } },360);  // 到着したらボヨン
+  afterScroll(()=>{ const b=el.querySelector('.grphead .badge'); if(b&&b.animate){ b.style.transformOrigin='center'; b.animate([{transform:'scale(1)'},{transform:'scale(1.3)',offset:.25},{transform:'scale(.88)',offset:.55},{transform:'scale(1.1)',offset:.78},{transform:'scale(1)'}],{duration:540,easing:'cubic-bezier(.34,1.56,.64,1)'}); } });  // 止まってからボヨン
+}
+function afterScroll(cb){                     // スムーススクロールが止まったら実行（最大~1.6s）
+  let last=window.scrollY,still=0,tries=0;
+  const tick=()=>{ const y=window.scrollY; if(Math.abs(y-last)<1.5)still++;else still=0; last=y; tries++;
+    if((tries>=8&&still>=3)||tries>100){ cb(); return; } requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
 }
 let jumpAnchor=localStorage.getItem('kaimono.jumpanchor')||'mid';   // top=上部 / mid=やや下（既定）
 function anchorOffset(){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150; return stick + (jumpAnchor==='mid'?Math.round(window.innerHeight*0.12):0); }
