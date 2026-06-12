@@ -632,7 +632,7 @@
 </div>
 
 <script>
-const APP_VER='20260612-014441';                 // ビルド毎に自動で更新される
+const APP_VER='20260612-015058';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1288,18 +1288,44 @@ function renderJump(barSel,present,sortMode,ft){
   if(_selZone){const sc=bar.querySelector('.jchip[data-jz="'+CSS.escape(_selZone)+'"]'); if(sc)sc.classList.add('sel');}
   requestAnimationFrame(updateJumpCur);
 }
+const SCROLL_BLINK=/Chrome\//.test(navigator.userAgent);   // Chrome/Android系(Blink)。iOSのWebKitは含まない
 function jumpToZone(areaSel,code){
   const area=$(areaSel);if(!area)return;
   const sel='.grp[data-zone="'+((window.CSS&&CSS.escape)?CSS.escape(code):code)+'"]';
   const el=area.querySelector(sel); if(!el)return;
-  _jumpUntil=Date.now()+700;                 // この間は通過ハイライトを出さない
   const ty=Math.max(0,el.getBoundingClientRect().top+window.scrollY-anchorOffset());   // 目的地
-  window.scrollTo({top:ty,behavior:'smooth'});
+  const dist=Math.abs(ty-window.scrollY);
+  _jumpUntil=Date.now()+Math.max(800,dist*0.4+300);   // スクロール中は通過ハイライトを出さない
   setCur(code);                              // 目的地を即ハイライト
-  afterScroll(()=>{                              // 到着しかけたらフラッシュ＋ボヨンを同時に
+  const fire=()=>{
     flashZone(el,code);
     const b=el.querySelector('.grphead .badge'); if(b&&b.animate){ b.style.transformOrigin='center'; b.animate([{transform:'scale(1)'},{transform:'scale(1.36)',offset:.25},{transform:'scale(.88)',offset:.55},{transform:'scale(1.12)',offset:.78},{transform:'scale(1)'}],{duration:540,easing:'cubic-bezier(.34,1.56,.64,1)'}); }
-  },ty);
+  };
+  if(SCROLL_BLINK){ smoothScrollTo(ty,fire); }                       // Blink: 自前アニメ（短時間）＋終了で発火
+  else { window.scrollTo({top:ty,behavior:'smooth'}); afterScrollNear(ty,fire); }   // WebKit: ネイティブ（ヌルヌル）＋近づいたら発火
+}
+function afterScrollNear(targetY,cb){           // WebKit用：目的地に近づいた瞬間に発火（ネイティブの滑らかさを活かす）
+  let last=window.scrollY,still=0,moved=false,tries=0;
+  const tol=Math.max(30,Math.round(window.innerHeight*0.06));
+  const tick=()=>{ const y=window.scrollY,d=Math.abs(y-last); last=y; tries++;
+    if(d>3)moved=true; if(d<1)still++; else still=0;
+    if((moved&&(Math.abs(y-targetY)<=tol||still>=2))||(!moved&&tries>=6)||tries>180){ cb(); return; }
+    requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+}
+let _scrollRAF=null;
+function smoothScrollTo(targetY,done){          // Blink用：自前スムーススクロール（短時間easeOut＝長い減速を回避）
+  cancelAnimationFrame(_scrollRAF);
+  const startY=window.scrollY;
+  const maxY=Math.max(0,(document.documentElement.scrollHeight||0)-window.innerHeight);
+  const ty=Math.max(0,Math.min(targetY,maxY));
+  const dist=ty-startY;
+  if(Math.abs(dist)<2){ window.scrollTo(0,ty); done&&done(); return; }
+  const dur=Math.min(460,Math.max(240,220+Math.abs(dist)*0.22));
+  const t0=performance.now(), ease=t=>1-Math.pow(1-t,3);   // easeOutCubic
+  const step=now=>{ let p=(now-t0)/dur; if(p>1)p=1; window.scrollTo(0,startY+dist*ease(p));
+    if(p<1){_scrollRAF=requestAnimationFrame(step);} else {done&&done();} };
+  _scrollRAF=requestAnimationFrame(step);
 }
 function flashZone(el,code){                    // 売り場ブロックの中に重ねる＝スクロール中でもズレない
   if(!flashOn)return;
@@ -1308,19 +1334,6 @@ function flashZone(el,code){                    // 売り場ブロックの中�
   ov.style.cssText=`position:absolute;inset:0;background:${hexA(f.ink,.22)};border-radius:12px;pointer-events:none;z-index:5;`;
   el.appendChild(ov);
   ov.animate([{opacity:1},{opacity:1,offset:.3},{opacity:0}],{duration:620,easing:'ease-out'}).onfinish=()=>ov.remove();
-}
-const SCROLL_BLINK=/Chrome\//.test(navigator.userAgent);   // デスクトップChrome系=減速が長い（iOSのWebKitは含まない）
-function afterScroll(cb,targetY){               // WebKit=近づいたら／Blink=止まってから（減速カーブの差を吸収）
-  let last=window.scrollY,still=0,moved=false,tries=0;
-  const tol=Math.max(30,Math.round(window.innerHeight*0.06));
-  const tick=()=>{ const y=window.scrollY,d=Math.abs(y-last); last=y; tries++;
-    if(d>3)moved=true;
-    if(d<1)still++; else still=0;
-    const near=(targetY!=null)&&Math.abs(y-targetY)<=tol;
-    const fire=SCROLL_BLINK?(moved&&still>=2):(moved&&(near||still>=2));
-    if(fire||(!moved&&tries>=6)||tries>180){ cb(); return; }
-    requestAnimationFrame(tick); };
-  requestAnimationFrame(tick);
 }
 let jumpFrac=(()=>{ const f=localStorage.getItem('kaimono.jumpfrac'); if(f!=null)return Math.max(0,Math.min(80,parseFloat(f)||0)); const a=localStorage.getItem('kaimono.jumpanchor'); return a==='top'?0:a==='center'?42:55; })();   // 移動先位置（％：タブ〜下バーの割合）既定55
 function spanOffset(frac){ const stick=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick'))||150;
