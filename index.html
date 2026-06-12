@@ -575,6 +575,14 @@
       <input id="jumpFrac" type="range" min="0" max="80" step="1" style="width:100%;">
       <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">チップで移動したとき、その売り場の先頭を画面のどこに表示するか。0%＝上のタブ直下、上げるほど下（タブ〜下バーの間での割合）</div>
     </div>
+    <div style="margin-top:14px;">
+      <label style="display:block;font-size:13px;font-weight:800;color:var(--ink);margin-bottom:6px;">✨ 移動先フラッシュ</label>
+      <div class="cfgseg" id="flashSeg">
+        <button data-fl="on">オン</button>
+        <button data-fl="off">オフ</button>
+      </div>
+      <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;line-height:1.5;">チップで移動したとき、その売り場の範囲をその色で一瞬光らせる</div>
+    </div>
   </div>
   <div class="sheetbtns" style="margin-top:12px;"><button class="b-done" id="zoneDone">とじる</button></div>
 </div>
@@ -624,7 +632,7 @@
 </div>
 
 <script>
-const APP_VER='20260611-222435';                 // ビルド毎に自動で更新される
+const APP_VER='20260612-005534';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1023,7 +1031,7 @@ function subscribe(){
 async function init(){
   if(DEMO){ document.body.classList.add('demo'); const sub=document.querySelector('header .sub'); if(sub)sub.textContent='🧪 見本モード（保存はこの端末だけ）'; const ic=document.querySelector('#syncDot .ic'); if(ic)ic.textContent='🧪'; }
   if(!DEMO) initDB();                                  // 見本モードではDBにつながない
-  applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide(); applyJumpFrac();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さを反映
+  applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide(); applyJumpFrac(); applyFlash();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さを反映
   loadLocal(); renderActive(); preloadImages();      // まずローカルで即表示＋写真先読み
   if(SB.ready()){
     try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); }
@@ -1294,10 +1302,11 @@ function jumpToZone(areaSel,code){
   });
 }
 function flashZone(el,code){                    // レイアウト非依存：重ねた半透明オーバーレイを一瞬出して消す
+  if(!flashOn)return;
   const z=zoneOf(code),f=zoneColorOf(z); if(!f||!el.animate)return;
   const r=el.getBoundingClientRect(); if(r.height<=0)return;
   const ov=document.createElement('div');
-  ov.style.cssText=`position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background:${hexA(f.ink,.22)};border:2px solid ${hexA(f.ink,.5)};border-radius:12px;pointer-events:none;z-index:30;`;
+  ov.style.cssText=`position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background:${hexA(f.ink,.22)};border-radius:12px;pointer-events:none;z-index:30;`;
   document.body.appendChild(ov);
   ov.animate([{opacity:1},{opacity:1,offset:.3},{opacity:0}],{duration:620,easing:'ease-out'}).onfinish=()=>ov.remove();
 }
@@ -1318,6 +1327,8 @@ function spanOffset(frac){ const stick=parseFloat(getComputedStyle(document.docu
 }
 function anchorOffset(){ return spanOffset(jumpFrac/100); }
 function applyJumpFrac(){ const s=$('#jumpFrac'),v=$('#jumpFracVal'); if(s)s.value=jumpFrac; if(v)v.textContent=jumpFrac+'%'; }
+let flashOn=(localStorage.getItem('kaimono.flash')??'1')!=='0';   // 移動先フラッシュ（既定オン）
+function applyFlash(){ document.querySelectorAll('#flashSeg button').forEach(b=>b.classList.toggle('on',b.dataset.fl===(flashOn?'on':'off'))); }
 function setCur(code){ const c=curArea(); if(!c)return; const bar=$(c.bar); if(bar)bar.querySelectorAll('.jchip').forEach(ch=>ch.classList.toggle('cur',ch.dataset.jz===code)); updateMiniCur(code); }
 function layoutSticky(){
   const hd=document.querySelector('header'); const h=hd?hd.offsetHeight:46;
@@ -1600,7 +1611,7 @@ function setZoneCode(i,newCode){
   recomputeZones();renderZoneAdmin();
 }
 let zoneSnap=new Map();
-function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();renderHapticBtn();applyBadgeAlpha();applyFindHide();applyJumpFrac();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
+function openZoneAdmin(){zoneSnap=new Map(catalog.map(i=>[i.uid,i.zone]));renderZoneAdmin();renderHapticBtn();applyBadgeAlpha();applyFindHide();applyJumpFrac();applyFlash();$('#zoneBg').classList.add('open');$('#zoneSheet').classList.add('open');}
 async function closeZoneAdmin(){
   $('#zoneBg').classList.remove('open');$('#zoneSheet').classList.remove('open');recomputeZones();
   if(SB.ready()){
@@ -2099,6 +2110,7 @@ $('#hapticToggle').addEventListener('click',()=>{hapticOn=!hapticOn;localStorage
 $('#badgeAlpha').addEventListener('input',e=>{badgeAlpha=parseInt(e.target.value,10)||0;localStorage.setItem('kaimono.badgealpha',String(badgeAlpha));applyBadgeAlpha();});
 $('#findHide').addEventListener('input',e=>{const i=parseInt(e.target.value,10)||0;findHideSec=(HIDE_OPTS[i]||HIDE_OPTS[0]).v;localStorage.setItem('kaimono.findhide',String(findHideSec));applyFindHide();});
 $('#jumpFrac').addEventListener('input',e=>{jumpFrac=parseInt(e.target.value,10)||0;localStorage.setItem('kaimono.jumpfrac',String(jumpFrac));applyJumpFrac();});
+document.querySelectorAll('#flashSeg button').forEach(b=>b.addEventListener('click',()=>{flashOn=b.dataset.fl==='on';localStorage.setItem('kaimono.flash',flashOn?'1':'0');applyFlash();}));
 $('#zoneBg').addEventListener('click',closeZoneAdmin);
 $('#zAddBtn').addEventListener('click',()=>{
   const code=$('#zAddCode').value.trim(),label=$('#zAddLabel').value.trim();
