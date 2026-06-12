@@ -124,7 +124,7 @@
   .addbtn{border:0;background:var(--green);color:#fff;font-family:inherit;font-weight:900;font-size:15px;padding:0 18px;border-radius:13px;cursor:pointer;box-shadow:0 3px 0 var(--green-d);transition:.1s;white-space:nowrap;}
   .addbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--green-d);}
 
-  .grp{margin-top:15px;}
+  .grp{margin-top:15px;position:relative;}
   .grphead{display:flex;align-items:center;gap:8px;margin:0 2px 7px;}
   .badge{font-size:12px;font-weight:900;padding:3px 9px;border-radius:8px;flex:none;}
   .grphead .nm{font-size:12px;font-weight:700;color:var(--ink-soft);}
@@ -632,7 +632,7 @@
 </div>
 
 <script>
-const APP_VER='20260612-005814';                 // ビルド毎に自動で更新される
+const APP_VER='20260612-010357';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1299,13 +1299,12 @@ function jumpToZone(areaSel,code){
   afterScroll(()=>{ flashZone(el,code); },14);   // フラッシュは少し早め（止まる手前）に点灯
   afterScroll(()=>{ const b=el.querySelector('.grphead .badge'); if(b&&b.animate){ b.style.transformOrigin='center'; b.animate([{transform:'scale(1)'},{transform:'scale(1.36)',offset:.25},{transform:'scale(.88)',offset:.55},{transform:'scale(1.12)',offset:.78},{transform:'scale(1)'}],{duration:540,easing:'cubic-bezier(.34,1.56,.64,1)'}); } });  // ボヨンは止まりぎわ
 }
-function flashZone(el,code){                    // レイアウト非依存：重ねた半透明オーバーレイを一瞬出して消す
+function flashZone(el,code){                    // 売り場ブロックの中に重ねる＝スクロール中でもズレない
   if(!flashOn)return;
   const z=zoneOf(code),f=zoneColorOf(z); if(!f||!el.animate)return;
-  const r=el.getBoundingClientRect(); if(r.height<=0)return;
   const ov=document.createElement('div');
-  ov.style.cssText=`position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background:${hexA(f.ink,.22)};border-radius:12px;pointer-events:none;z-index:30;`;
-  document.body.appendChild(ov);
+  ov.style.cssText=`position:absolute;inset:0;background:${hexA(f.ink,.22)};border-radius:12px;pointer-events:none;z-index:5;`;
+  el.appendChild(ov);
   ov.animate([{opacity:1},{opacity:1,offset:.3},{opacity:0}],{duration:620,easing:'ease-out'}).onfinish=()=>ov.remove();
 }
 function afterScroll(cb,thr){                  // 減速して1フレーム移動量が thr px 以下になった所で実行（既定5＝ほぼ停止／大きいほど早い）
