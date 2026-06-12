@@ -635,7 +635,7 @@
 </div>
 
 <script>
-const APP_VER='20260612-030915';                 // ビルド毎に自動で更新される
+const APP_VER='20260612-032516';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -2109,7 +2109,10 @@ $('#saveBtn').addEventListener('click',async()=>{
     closeEdit();renderItems();toast(`「${editing.name}」を追加しました`);
     return;
   }
-  sbItemUpdate(editing);
+  const ov=localOverride.get(editing.uid)||{fields:{}};   // 保存値を一定時間ローカル保護（DB確定前の同期で消えるのを防ぐ）
+  Object.assign(ov.fields,{name:editing.name,product:editing.product,id:editing.id,price:editing.price,type:editing.type,zone:editing.zone,keep:editing.keep,keepQty:editing.keepQty,hidden:editing.hidden,bagCap:editing.bagCap});
+  ov.until=Date.now()+6000; localOverride.set(editing.uid,ov); quietUntil=Date.now()+2200; lastWrite=Date.now();
+  sbItemUpdate(editing); saveLocal();
   closeEdit();renderItems();toast('保存しました');
 });
 $('#delBtn').addEventListener('click',()=>{if(!editing)return;if(editingNew||editLock){closeEdit();return;}const u=editing.uid;catalog=catalog.filter(i=>i.uid!==u);sbItemDelete(u);closeEdit();renderItems();toast('削除しました');});
