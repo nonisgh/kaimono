@@ -632,7 +632,7 @@
 </div>
 
 <script>
-const APP_VER='20260612-014051';                 // ビルド毎に自動で更新される
+const APP_VER='20260612-014441';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1309,14 +1309,16 @@ function flashZone(el,code){                    // 売り場ブロックの中�
   el.appendChild(ov);
   ov.animate([{opacity:1},{opacity:1,offset:.3},{opacity:0}],{duration:620,easing:'ease-out'}).onfinish=()=>ov.remove();
 }
-function afterScroll(cb,targetY){               // 残り距離をリアルタイムで見て、目的地に近づいたら発火（減速カーブ非依存）
+const SCROLL_BLINK=/Chrome\//.test(navigator.userAgent);   // デスクトップChrome系=減速が長い（iOSのWebKitは含まない）
+function afterScroll(cb,targetY){               // WebKit=近づいたら／Blink=止まってから（減速カーブの差を吸収）
   let last=window.scrollY,still=0,moved=false,tries=0;
   const tol=Math.max(30,Math.round(window.innerHeight*0.06));
   const tick=()=>{ const y=window.scrollY,d=Math.abs(y-last); last=y; tries++;
     if(d>3)moved=true;
     if(d<1)still++; else still=0;
     const near=(targetY!=null)&&Math.abs(y-targetY)<=tol;
-    if((moved&&near)||(moved&&still>=2)||(!moved&&tries>=6)||tries>180){ cb(); return; }   // 近づいた / 止まった / スクロール無し
+    const fire=SCROLL_BLINK?(moved&&still>=2):(moved&&(near||still>=2));
+    if(fire||(!moved&&tries>=6)||tries>180){ cb(); return; }
     requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
 }
