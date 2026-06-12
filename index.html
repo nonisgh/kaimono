@@ -76,6 +76,7 @@
   .seg2{display:flex;background:var(--paper2);border:1.5px solid var(--line);border-radius:999px;padding:3px;gap:2px;margin:10px 0 2px;}
   .seg2 button{flex:1;border:0;background:transparent;font-family:inherit;font-weight:700;font-size:13px;color:var(--ink-soft);padding:8px 0;border-radius:999px;cursor:pointer;transition:.15s;}
   .seg2 button.on{background:var(--green);color:#fff;box-shadow:0 2px 0 var(--green-d);}
+  .bagtip{display:none;text-align:right;font-size:11.5px;font-weight:800;color:var(--green-d);padding:4px 6px 0;}
   .restoreall{width:100%;border:1.5px solid var(--line);background:var(--paper2);color:var(--ink-soft);font-family:inherit;font-weight:800;font-size:13px;padding:11px;border-radius:13px;cursor:pointer;margin:10px 0 2px;transition:.12s;}
   .restoreall:active{transform:scale(.99);background:#ece4d2;}
   .alertbar{display:flex;align-items:center;gap:7px;background:var(--hot);color:#fff;font-family:inherit;font-weight:800;font-size:13.5px;line-height:1.4;padding:11px 14px;border-radius:13px;margin:4px 0 9px;box-shadow:0 2px 0 #a02f3c;}
@@ -395,6 +396,7 @@
       </div>
     </div>
     <div class="seg2" id="listSeg"><button class="on" data-seg="todo">のこり</button><button data-seg="done">カゴの中</button></div>
+    <div id="bagTip" class="bagtip"></div>
     <div id="restoreWrap"></div>
     <div id="listArea"></div>
     <div id="revBar">
@@ -501,6 +503,7 @@
     <div class="field"><label>商品id</label><input id="fId" type="number" inputmode="numeric"></div>
     <div class="field"><label>単価（円）</label><input id="fPrice" type="number" inputmode="numeric"></div>
   </div>
+  <div class="field"><label>🛍 1袋に入る数（0＝袋いらない）</label><input id="fBag" type="number" inputmode="numeric" min="0" placeholder="例：2 → 2個まで1袋、3〜4個で2枚"><div style="font-size:11px;color:var(--ink-soft);margin-top:6px;line-height:1.5;">野菜・果物などビニール袋に入れる品目に。買う個数から必要な袋の枚数を自動計算して、リストに合計を出します</div></div>
   <div class="field"><label>種別</label><div class="chips" id="typeChips"></div></div>
   <div class="field"><label>売り場</label><div class="chips" id="zoneChips"></div></div>
   <div class="field"><label>いつも買う（定番）</label>
@@ -632,7 +635,7 @@
 </div>
 
 <script>
-const APP_VER='20260612-015058';                 // ビルド毎に自動で更新される
+const APP_VER='20260612-030915';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -902,7 +905,7 @@ function showSync(kind){ const d=document.getElementById('syncDot'); if(!d)retur
 function syncPulse(){ if(!SB.ready())return; lastWrite=Date.now(); showSync('up'); }
 function syncPulseDown(){ if(!SB.ready())return; showSync('down'); }
 
-function itemRow(it){return {item_no:it.id,name:it.name,category:it.type,zone_code:it.zone,price:it.price,qty:it.qty,done:it.done,keep:it.keep,keep_qty:it.keepQty,hidden:!!it.hidden,got:it.got||0,picked_at:it.picked_at||null,is_alert:!!it.isAlert,product:it.product||null,image_path:it.image||null};}
+function itemRow(it){return {item_no:it.id,name:it.name,category:it.type,zone_code:it.zone,price:it.price,qty:it.qty,done:it.done,keep:it.keep,keep_qty:it.keepQty,hidden:!!it.hidden,got:it.got||0,picked_at:it.picked_at||null,is_alert:!!it.isAlert,product:it.product||null,image_path:it.image||null,bag_cap:it.bagCap||0};}
 function itemRowId(it){return Object.assign({id:it.uid},itemRow(it));}
 function zoneRow(z,i){return {code:z.code,label:z.label,color:z.fam,sort_order:i};}
 
@@ -956,7 +959,7 @@ function sbLogInsert(batchId,label,when,entries){ if(!SB.ready())return; syncPul
 function sbLogDelete(bid){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').delete().eq('batch_id',bid).then(r=>{if(r.error)console.error(r.error);}); }
 
 async function loadZones(){ const {data,error}=await SB.client.from('zones').select('*').order('sort_order'); if(error){console.error(error);return;} if(data&&data.length){ const seen=new Set(),arr=[]; for(const r of data){ if(seen.has(r.code))continue; seen.add(r.code); arr.push({code:r.code,label:r.label,fam:r.color}); } ZONES=arr; if(!ZONES.some(z=>z.code==='その他'))ZONES.push({code:'その他',label:'その他',fam:'etc'}); recomputeZones(); } }
-async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden,got:r.got||0,picked_at:r.picked_at||null,isAlert:(!!r.is_alert||r.category==='アラート'),product:r.product||'',image:r.image_path||''})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } preloadImages(); }
+async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden,got:r.got||0,picked_at:r.picked_at||null,isAlert:(!!r.is_alert||r.category==='アラート'),product:r.product||'',image:r.image_path||'',bagCap:r.bag_cap||0})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } preloadImages(); }
 async function loadHistory(){ const {data,error}=await SB.client.from('purchase_log').select('*').order('archived_at',{ascending:false}); if(error){console.error(error);return;} const map=new Map(); for(const r of data){ if(!map.has(r.batch_id))map.set(r.batch_id,{bid:r.batch_id,date:r.label,list:[]}); map.get(r.batch_id).list.push({name:r.qty>1?`${r.name} ×${r.qty}`:r.name,zone:r.zone_code||null,itemId:r.item_id??null,picked:r.picked_at||null}); } history=[...map.values()]; }
 async function loadBookmarks(){ if(!SB.ready())return; const {data,error}=await SB.client.from('bookmarks').select('*').order('created_at',{ascending:false}); if(error){console.warn('bookmarks 読み込み不可（テーブル未作成かも）',error.message);return;} bookmarks=data.map(r=>({uid:Number(r.id),name:r.name||'',data:Array.isArray(r.data)?r.data:[],color:r.color||'',created_at:r.created_at})); }
 async function sbBookmarkInsert(name,data){ if(!SB.ready())return null; syncPulse(); const {data:d,error}=await SB.client.from('bookmarks').insert({name,data}).select().single(); if(error){console.error(error);return null;} return d.id; }
@@ -1073,7 +1076,9 @@ function groupHeader(g){
 const tripTotal=()=>catalog.filter(i=>i.qty>0&&!i.isAlert).reduce((s,i)=>s+(i.price||0)*i.qty,0);
 
 /* ===== LIST ===== */
-function renderList(){ saveLocal();
+function totalBags(){ return catalog.reduce((s,i)=>{ if(i.hidden||i.isAlert)return s; const q=i.qty||0,cap=i.bagCap||0; return s+((cap>=1&&q>0)?Math.ceil(q/cap):0); },0); }
+function updateBagTip(){ const el=$('#bagTip'); if(!el)return; const n=totalBags(); if(n>0){ el.textContent='🛍 ビニール袋 '+n+'枚'; el.style.display='block'; } else { el.style.display='none'; } }
+function renderList(){ saveLocal(); updateBagTip();
   const realTrip=catalog.filter(i=>i.qty>0&&!i.isAlert);
   const doneReal=realTrip.filter(i=>i.done);
   $('#remain').textContent=realTrip.filter(i=>!i.done).length;
@@ -1572,7 +1577,7 @@ function renderSheetImage(){
 }
 function openEdit(it,lock,isNew){
   editing=it;editLock=!!lock;editingNew=!!isNew;editZone=it.zone;editType=it.type;editQty=Math.max(1,it.keepQty||1);editKeep=it.keep;editHidden=!!it.hidden;
-  $('#fName').value=it.name;$('#fProduct').value=it.product||'';$('#fId').value=it.id;$('#fPrice').value=it.price||'';$('#qVal').textContent=editQty;
+  $('#fName').value=it.name;$('#fProduct').value=it.product||'';$('#fId').value=it.id;$('#fPrice').value=it.price||'';$('#fBag').value=it.bagCap||'';$('#qVal').textContent=editQty;
   renderTypeChips();renderZoneChips();renderKeepBtn();renderHideBtn();renderSheetImage();
   $('#sheetTitle').textContent=editingNew?'品目を追加':'品目の編集';
   $('#copyBtn').style.display=editingNew?'none':'';
@@ -1587,7 +1592,7 @@ function openNewEdit(prefillName){
   const maxId=catalog.reduce((a,b)=>Math.max(a,b.id),0);
   const nm=(prefillName||'').trim();
   const zone=nm?guessZone(nm):'その他',type=nm?guessType(nm):'その他';
-  openEdit({uid:null,id:maxId+1,name:nm,type,zone,price:0,qty:0,done:false,keep:false,keepQty:0,hidden:false,product:'',image:''},false,true);
+  openEdit({uid:null,id:maxId+1,name:nm,type,zone,price:0,qty:0,done:false,keep:false,keepQty:0,hidden:false,product:'',image:'',bagCap:0},false,true);
 }
 function closeEdit(){$('#sheetBg').classList.remove('open');$('#sheet').classList.remove('open');editing=null;editLock=false;editingNew=false;}
 
@@ -2093,6 +2098,7 @@ $('#saveBtn').addEventListener('click',async()=>{
   editing.product=$('#fProduct').value.trim();
   const idv=parseInt($('#fId').value);if(!isNaN(idv))editing.id=idv;
   const pv=parseInt($('#fPrice').value);editing.price=isNaN(pv)?0:Math.max(0,pv);
+  const bc=parseInt($('#fBag').value);editing.bagCap=isNaN(bc)?0:Math.max(0,bc);
   editing.type=editType;editing.zone=editZone;
   editing.keep=editKeep;editing.keepQty=editKeep?Math.max(editQty,1):0;editing.hidden=editHidden;
   if(editingNew){
