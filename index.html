@@ -227,8 +227,12 @@
   body.locked .lockbtn{background:linear-gradient(#fff0f0,#ffe3e3);border-color:#e6b8c2;color:var(--hot);}
   #editTab,#itemTab{position:relative;}
   .lockcover{display:none;position:fixed;inset:0;z-index:35;background:rgba(251,246,236,.9);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:30px;}
-  body.locked #editTab .lockcover,body.locked #itemTab .lockcover{display:flex;}
+  body.locked:not(.lockedother) #editTab .lockcover,body.locked:not(.lockedother) #itemTab .lockcover{display:flex;}
   body.locked #editFind,body.locked #itemFind{display:none !important;}
+  .othercover{display:none;position:fixed;inset:0;z-index:60;background:rgba(251,246,236,.97);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:34px;}
+  body.lockedother .othercover{display:flex;}
+  .othercover .lk{font-size:64px;line-height:1;}
+  .othercover p{margin:0;color:var(--ink-soft);font-weight:700;line-height:1.8;font-size:15px;}
   .lockcover .lk{font-size:56px;line-height:1;}
   .lockcover p{margin:0;color:var(--ink-soft);font-weight:700;line-height:1.7;font-size:14px;}
   .unlockbtn{border:1.5px solid var(--green);background:var(--green);color:#fff;font-family:inherit;font-weight:800;font-size:15px;padding:13px 22px;border-radius:14px;cursor:pointer;box-shadow:0 3px 0 var(--green-d);}
@@ -509,6 +513,8 @@
 
 <div class="footer hidden" id="footer"><div class="inner"><button class="checkout" id="checkoutBtn" disabled><span>🛒</span><span id="checkoutTxt">カゴに入れたものを記録</span></button></div></div>
 
+<div class="othercover"><div class="lk">🔒</div><p>ロック中（買い物に出ています）<br>終わるまで編集・閲覧はできません</p><button class="unlockbtn">🔓 スライドで解除</button></div>
+
 <div class="slidebg" id="slideBg">
   <div class="slidecard">
     <div class="slidelabel" id="slideLabel">スライドでロック</div>
@@ -672,7 +678,7 @@
 </div>
 
 <script>
-const APP_VER='20260612-201237';                 // ビルド毎に自動で更新される
+const APP_VER='20260612-201843';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -925,7 +931,9 @@ let history=[{bid:0,date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌
 let editingAlert=null,aZone='その他',aShow=true;   // アラート編集中の品目（catalog内）。aShow=リスト表示ON
 let bookmarks=[];                       // {uid,name,data:[{uid,name,qty}],created_at} リストの買うものプリセット
 let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editLock=false,editingNew=false,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false,editFilter='',itemFilter='';
-let locked=(()=>{try{return localStorage.getItem('kaimono.locked')==='1';}catch(e){return false;}})();
+let locked=false;   // 派生フラグ（lockState.locked）
+const MYDEV=(()=>{try{let id=localStorage.getItem('kaimono.devid'); if(!id){id='d'+Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem('kaimono.devid',id);} return id;}catch(e){return 'd0';}})();
+let lockState=(()=>{try{return JSON.parse(localStorage.getItem('kaimono.lockstate'))||{locked:false,by:null};}catch(e){return {locked:false,by:null};}})();
 let itemSortables=[],zoneSortable=null,confirmCb=null,histSort='pick';
 let revMode=(localStorage.getItem('kaimono.rev')??'1')==='1';   // デフォルト=タップモード（下から）
 let revPad=parseFloat(localStorage.getItem('kaimono.revpad'))||24; // 表示位置(vh)・端末ごと（同期しない）
@@ -1067,6 +1075,7 @@ function subscribe(){
     .on('postgres_changes',{event:'*',schema:'public',table:'zones'},async()=>{ if($('#zoneSheet').classList.contains('open'))return; await loadZones();incoming();syncRender(); })
     .on('postgres_changes',{event:'*',schema:'public',table:'purchase_log'},async()=>{await loadHistory();incoming();if(activeTab==='hist')renderHist();})
     .on('postgres_changes',{event:'*',schema:'public',table:'bookmarks'},async()=>{await loadBookmarks();incoming();if($('#bmSheet').classList.contains('open'))renderBookmarks();})
+    .on('postgres_changes',{event:'*',schema:'public',table:'app_state'},async()=>{ await loadLock(); renderActive(); })
     .subscribe();
 }
 async function init(){
@@ -1075,7 +1084,7 @@ async function init(){
   applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide(); applyJumpFrac(); applyFlash(); applyLock();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さ・ロックを反映
   loadLocal(); renderActive(); preloadImages();      // まずローカルで即表示＋写真先読み
   if(SB.ready()){
-    try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); }
+    try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); await loadLock(); }
     catch(e){ console.error(e); toast('同期エラー（コンソール参照）'); }
     renderActive(); subscribe();
   }
@@ -1334,9 +1343,22 @@ function applyReverse(){
 }
 function scrollBottom(){ requestAnimationFrame(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})); }
 function renderActive(){if(activeTab==='list')renderList();else if(activeTab==='edit')renderEdit();else if(activeTab==='item')renderItems();else renderHist();saveLocal();}
-/* ===== ロック（買い物モード） ===== */
-function applyLock(){ document.body.classList.toggle('locked',locked); const b=$('#lockBtn'); if(b)b.textContent=locked?'🔒 ロック中（買い物モード）':'🔓 編集をロック（買い物モード）'; }
-function setLock(v){ locked=!!v; try{localStorage.setItem('kaimono.locked',locked?'1':'0');}catch(e){} applyLock(); haptic(locked?'done':'ok'); renderActive(); toast(locked?'🔒 ロックしました（買い物モード）':'🔓 ロックを解除しました'); }
+/* ===== ロック（買い物モード・端末間で同期） ===== */
+function applyLock(){
+  locked=!!lockState.locked;
+  const mine=lockState.by===MYDEV;                 // 自分がロックした側か
+  document.body.classList.toggle('locked',locked);
+  document.body.classList.toggle('lockedother',locked&&!mine);   // 相手がロック＝全画面ロック
+  const b=$('#lockBtn'); if(b)b.textContent=locked?'🔒 ロック中（買い物モード）':'🔓 編集をロック（買い物モード）';
+}
+function persistLock(){ try{localStorage.setItem('kaimono.lockstate',JSON.stringify(lockState));}catch(e){} }
+function setLock(v){
+  lockState = v?{locked:true,by:MYDEV}:{locked:false,by:null};
+  persistLock(); applyLock(); haptic(v?'done':'ok'); renderActive(); sbLockSet();
+  toast(v?'🔒 ロックしました（買い物モード）':'🔓 ロックを解除しました');
+}
+function sbLockSet(){ if(!SB.ready())return; SB.client.from('app_state').upsert({key:'lock',value:lockState,updated_at:new Date().toISOString()}).then(r=>{if(r.error)console.error(r.error);}); }
+async function loadLock(){ if(!SB.ready())return; try{ const r=await SB.client.from('app_state').select('value').eq('key','lock').maybeSingle(); if(!r.error&&r.data&&r.data.value){ lockState=r.data.value||{locked:false,by:null}; persistLock(); applyLock(); } }catch(e){console.error(e);} }
 let _slideDone=null,_sdrag=false,_sx0=0,_skx=0;
 function slideConfirm(o){ _slideDone=o.onComplete||null; $('#slideLabel').textContent=o.label||'スライドで確定'; $('#slideHint').textContent=o.hint||'スライド →'; $('#slideKnob').textContent=o.knob||'🔒'; $('#slideBg').classList.add('open'); requestAnimationFrame(slideReset); }
 function slideReset(){ const k=$('#slideKnob'); k.style.left='4px'; $('#slideFill').style.width=(k.offsetWidth+4)+'px'; }
