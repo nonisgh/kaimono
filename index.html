@@ -222,6 +222,25 @@
   .srow-photo{flex:0 0 22%;min-width:60px;align-self:stretch;margin:-15px -15px -15px 0;display:grid;place-items:center;font-size:18px;background:rgba(0,0,0,calc(var(--badge-a) + .05));border-left:1px solid rgba(0,0,0,.10);}
   .srow-bag{flex:none;align-self:center;font-size:11px;font-weight:800;color:var(--green-d);white-space:nowrap;background:rgba(255,255,255,.6);border-radius:8px;padding:3px 8px;margin-left:6px;}
   .grpbag{flex:none;font-size:11px;font-weight:800;color:var(--green-d);white-space:nowrap;margin-left:8px;}
+  .lockbtn{width:100%;border:1.5px solid #d9c9a6;background:linear-gradient(#fff,#fbf3e0);color:var(--green-d);font-family:inherit;font-weight:800;font-size:14px;padding:12px;border-radius:14px;cursor:pointer;margin:2px 0 10px;box-shadow:0 2px 0 #e7d9b8;transition:.12s;}
+  .lockbtn:active{transform:translateY(1px);box-shadow:none;}
+  body.locked .lockbtn{background:linear-gradient(#fff0f0,#ffe3e3);border-color:#e6b8c2;color:var(--hot);}
+  #editTab,#itemTab{position:relative;}
+  .lockcover{display:none;position:absolute;inset:0;z-index:50;background:rgba(251,246,236,.88);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:30px;border-radius:14px;}
+  body.locked #editTab .lockcover,body.locked #itemTab .lockcover{display:flex;}
+  .lockcover .lk{font-size:56px;line-height:1;}
+  .lockcover p{margin:0;color:var(--ink-soft);font-weight:700;line-height:1.7;font-size:14px;}
+  .unlockbtn{border:1.5px solid var(--green);background:var(--green);color:#fff;font-family:inherit;font-weight:800;font-size:15px;padding:13px 22px;border-radius:14px;cursor:pointer;box-shadow:0 3px 0 var(--green-d);}
+  .unlockbtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--green-d);}
+  .slidebg{position:fixed;inset:0;z-index:200;background:rgba(40,32,20,.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:24px;}
+  .slidebg.open{display:flex;}
+  .slidecard{width:100%;max-width:420px;background:var(--card);border:1.5px solid var(--line);border-radius:22px;padding:24px 20px 18px;box-shadow:0 18px 50px rgba(0,0,0,.3);text-align:center;}
+  .slidelabel{font-weight:800;font-size:17px;color:var(--green-d);margin-bottom:18px;}
+  .slidetrack{position:relative;height:64px;border-radius:16px;background:var(--paper2);border:1.5px solid var(--line);overflow:hidden;touch-action:none;}
+  .slidefill{position:absolute;left:0;top:0;bottom:0;width:64px;background:var(--green-soft);transition:none;}
+  .slidehint{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-soft);font-weight:800;font-size:14px;letter-spacing:1px;pointer-events:none;}
+  .slideknob{position:absolute;left:4px;top:4px;width:56px;height:56px;border-radius:13px;background:var(--green);color:#fff;display:grid;place-items:center;font-size:24px;box-shadow:0 3px 0 var(--green-d);touch-action:none;cursor:grab;}
+  .slidecancel{margin-top:14px;border:0;background:transparent;color:var(--ink-soft);font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;padding:6px;}
   .srow-photo:active{filter:brightness(.93);}
   body.fs .srow-photo{margin:-18px -16px -18px 0;}
   /* 検索＋目次バー（編集・品目） */
@@ -410,6 +429,7 @@
 
   <!-- EDIT -->
   <main id="editTab" class="hidden">
+    <button id="lockBtn" class="lockbtn">🔓 編集をロック（買い物モード）</button>
     <div class="addbar"><input id="editAddInput" type="text" placeholder="臨時の品を追加（例：牛乳）" enterkeyhint="done"><button class="addbtn" id="editAddBtn">追加</button></div>
     <div style="display:flex;gap:8px;margin:0 0 4px;flex-wrap:wrap;">
       <button class="ghostbtn" id="loadKeepBtn">★ 定番を読込</button>
@@ -440,6 +460,7 @@
       <div class="paintlabel"></div>
     </div>
     <div id="editArea"></div>
+    <div class="lockcover"><div class="lk">🔒</div><p>ロック中（買い物モード）<br>編集はできません</p><button class="unlockbtn">🔓 スライドで解除</button></div>
   </main>
 
   <!-- ITEM -->
@@ -470,6 +491,7 @@
       <div class="paintlabel"></div>
     </div>
     <div id="itemArea"></div>
+    <div class="lockcover"><div class="lk">🔒</div><p>ロック中（買い物モード）<br>編集はできません</p><button class="unlockbtn">🔓 スライドで解除</button></div>
   </main>
 
   <!-- HISTORY -->
@@ -485,6 +507,18 @@
 
 
 <div class="footer hidden" id="footer"><div class="inner"><button class="checkout" id="checkoutBtn" disabled><span>🛒</span><span id="checkoutTxt">カゴに入れたものを記録</span></button></div></div>
+
+<div class="slidebg" id="slideBg">
+  <div class="slidecard">
+    <div class="slidelabel" id="slideLabel">スライドでロック</div>
+    <div class="slidetrack" id="slideTrack">
+      <div class="slidefill" id="slideFill"></div>
+      <div class="slidehint" id="slideHint">スライド →</div>
+      <div class="slideknob" id="slideKnob">🔒</div>
+    </div>
+    <button class="slidecancel" id="slideCancel">やめる</button>
+  </div>
+</div>
 
 <!-- item edit sheet -->
 <div class="sheetbg" id="sheetBg"></div>
@@ -637,7 +671,7 @@
 </div>
 
 <script>
-const APP_VER='20260612-060537';                 // ビルド毎に自動で更新される
+const APP_VER='20260612-062018';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -890,6 +924,7 @@ let history=[{bid:0,date:'6月7日(土)',list:[{name:'お米 5kg'},{name:'味噌
 let editingAlert=null,aZone='その他',aShow=true;   // アラート編集中の品目（catalog内）。aShow=リスト表示ON
 let bookmarks=[];                       // {uid,name,data:[{uid,name,qty}],created_at} リストの買うものプリセット
 let activeTab='list',listSort='zone',editSort='zone',itemSort='zone',listSeg='todo',editing=null,editLock=false,editingNew=false,editZone='その他',editType='その他',editQty=0,editKeep=false,editHidden=false,editFilter='',itemFilter='';
+let locked=(()=>{try{return localStorage.getItem('kaimono.locked')==='1';}catch(e){return false;}})();
 let itemSortables=[],zoneSortable=null,confirmCb=null,histSort='pick';
 let revMode=(localStorage.getItem('kaimono.rev')??'1')==='1';   // デフォルト=タップモード（下から）
 let revPad=parseFloat(localStorage.getItem('kaimono.revpad'))||24; // 表示位置(vh)・端末ごと（同期しない）
@@ -1036,7 +1071,7 @@ function subscribe(){
 async function init(){
   if(DEMO){ document.body.classList.add('demo'); const sub=document.querySelector('header .sub'); if(sub)sub.textContent='🧪 見本モード（保存はこの端末だけ）'; const ic=document.querySelector('#syncDot .ic'); if(ic)ic.textContent='🧪'; }
   if(!DEMO) initDB();                                  // 見本モードではDBにつながない
-  applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide(); applyJumpFrac(); applyFlash();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さを反映
+  applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide(); applyJumpFrac(); applyFlash(); applyLock();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さ・ロックを反映
   loadLocal(); renderActive(); preloadImages();      // まずローカルで即表示＋写真先読み
   if(SB.ready()){
     try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); }
@@ -1298,6 +1333,24 @@ function applyReverse(){
 }
 function scrollBottom(){ requestAnimationFrame(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})); }
 function renderActive(){if(activeTab==='list')renderList();else if(activeTab==='edit')renderEdit();else if(activeTab==='item')renderItems();else renderHist();saveLocal();}
+/* ===== ロック（買い物モード） ===== */
+function applyLock(){ document.body.classList.toggle('locked',locked); const b=$('#lockBtn'); if(b)b.textContent=locked?'🔒 ロック中（買い物モード）':'🔓 編集をロック（買い物モード）'; }
+function setLock(v){ locked=!!v; try{localStorage.setItem('kaimono.locked',locked?'1':'0');}catch(e){} applyLock(); haptic(locked?'done':'ok'); renderActive(); toast(locked?'🔒 ロックしました（買い物モード）':'🔓 ロックを解除しました'); }
+let _slideDone=null,_sdrag=false,_sx0=0,_skx=0;
+function slideConfirm(o){ _slideDone=o.onComplete||null; $('#slideLabel').textContent=o.label||'スライドで確定'; $('#slideHint').textContent=o.hint||'スライド →'; $('#slideKnob').textContent=o.knob||'🔒'; $('#slideBg').classList.add('open'); requestAnimationFrame(slideReset); }
+function slideReset(){ const k=$('#slideKnob'); k.style.left='4px'; $('#slideFill').style.width=(k.offsetWidth+4)+'px'; }
+function slideClose(){ $('#slideBg').classList.remove('open'); _sdrag=false; }
+function slideMax(){ return $('#slideTrack').clientWidth-$('#slideKnob').offsetWidth-4; }
+function tryCheckout(){
+  if(locked){
+    const remain=catalog.filter(i=>!i.isAlert&&i.qty>0&&!i.done).length;
+    if(remain>0){ haptic(); toast('のこりを全部カゴに入れてね 🛒'); return; }
+    if(catalog.filter(i=>i.qty>0&&i.done&&!i.isAlert).length===0){ toast('カゴに何も入ってないよ'); return; }
+    slideConfirm({label:'スライドで記録＆ロック解除',hint:'記録して解除 →',knob:'🔓',onComplete:()=>{ checkout(); setLock(false); }});
+    return;
+  }
+  checkout();
+}
 function matchItem(it,ft){ if(!ft)return true; return (it.name||'').toLowerCase().includes(ft)||(it.product||'').toLowerCase().includes(ft); }
 function renderJump(barSel,present,sortMode,ft){
   const bar=$(barSel);if(!bar)return;
@@ -1594,6 +1647,7 @@ function renderSheetImage(){
   else{ fr.classList.remove('has');fr.innerHTML='<span class="ph">写真なし<br>クリック / ドラッグ&ドロップ</span>'; del.style.display='none'; pick.textContent='📷 写真を追加'; }
 }
 function openEdit(it,lock,isNew){
+  if(locked)return;
   editing=it;editLock=!!lock;editingNew=!!isNew;editZone=it.zone;editType=it.type;editQty=Math.max(1,it.keepQty||1);editKeep=it.keep;editHidden=!!it.hidden;
   $('#fName').value=it.name;$('#fProduct').value=it.product||'';$('#fId').value=it.id;$('#fPrice').value=it.price||'';$('#fBag').value=it.bagCap||'';$('#qVal').textContent=editQty;
   renderTypeChips();renderZoneChips();renderKeepBtn();renderHideBtn();renderSheetImage();
@@ -1607,6 +1661,7 @@ function openEdit(it,lock,isNew){
   const sh=$('#sheet');sh.scrollTop=0;requestAnimationFrame(()=>{sh.scrollTop=0;});   // 開くたび先頭から
 }
 function openNewEdit(prefillName){
+  if(locked)return;
   const maxId=catalog.reduce((a,b)=>Math.max(a,b.id),0);
   const nm=(prefillName||'').trim();
   const zone=nm?guessZone(nm):'その他',type=nm?guessType(nm):'その他';
@@ -1769,7 +1824,7 @@ document.querySelector('.tabs').addEventListener('click',e=>{
 
 $('#listSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;listSeg=b.dataset.seg;[...$('#listSeg').children].forEach(x=>x.classList.toggle('on',x===b));renderList();});
 $('#restoreWrap').addEventListener('click',e=>{if(e.target.closest('#restoreAllBtn'))restoreAllDone();});
-$('#listArea').addEventListener('click',e=>{if(e.target.closest('#emptyRecBtn'))checkout();});
+$('#listArea').addEventListener('click',e=>{if(e.target.closest('#emptyRecBtn'))tryCheckout();});
 function restoreAllDone(){
   const done=catalog.filter(i=>i.qty>0&&i.done);
   if(!done.length)return;
@@ -1786,7 +1841,7 @@ $('#itemSort').addEventListener('change',e=>{itemSort=e.target.value;renderItems
 $('#histSort').addEventListener('change',e=>{histSort=e.target.value;renderHist();});
 
 let _sx=0,_sy=0,_su=null,_btn=null,_lpTimer=null,_lpFired=false,_simg=false;
-function startLongPress(uid){ _lpFired=false; clearTimeout(_lpTimer); _lpTimer=setTimeout(()=>{ _lpFired=true; const it=catalog.find(i=>i.uid===uid); if(it){ haptic('done'); if(it.isAlert) openAlertEdit(it); else openEdit(it,true); } },1000); }
+function startLongPress(uid){ if(locked)return; _lpFired=false; clearTimeout(_lpTimer); _lpTimer=setTimeout(()=>{ _lpFired=true; const it=catalog.find(i=>i.uid===uid); if(it){ haptic('done'); if(it.isAlert) openAlertEdit(it); else openEdit(it,true); } },1000); }
 function cancelLongPress(){ clearTimeout(_lpTimer); }
 $('#editArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.erow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;const b=e.target.closest('[data-act]');_btn=b?b.dataset.act:null;startLongPress(_su);});
 $('#editArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10||Math.abs(e.clientY-_sy)>10)cancelLongPress();});
@@ -1869,7 +1924,17 @@ $('#listArea').addEventListener('pointerup',e=>{
   }
 });
 
-$('#checkoutBtn').addEventListener('click',checkout);
+$('#checkoutBtn').addEventListener('click',tryCheckout);
+$('#lockBtn').addEventListener('click',()=>{ if(!locked) slideConfirm({label:'スライドでロック',hint:'ロック →',knob:'🔒',onComplete:()=>setLock(true)}); });
+document.querySelectorAll('.unlockbtn').forEach(b=>b.addEventListener('click',()=>slideConfirm({label:'スライドで解除',hint:'解除 →',knob:'🔓',onComplete:()=>setLock(false)})));
+$('#slideCancel').addEventListener('click',slideClose);
+$('#slideBg').addEventListener('click',e=>{ if(e.target===$('#slideBg'))slideClose(); });
+(function(){ const k=$('#slideKnob');
+  k.addEventListener('pointerdown',e=>{ _sdrag=true;_sx0=e.clientX;_skx=k.offsetLeft; try{k.setPointerCapture(e.pointerId);}catch(_){}});
+  k.addEventListener('pointermove',e=>{ if(!_sdrag)return; const max=slideMax(); let x=Math.max(4,Math.min(max,_skx+(e.clientX-_sx0))); k.style.left=x+'px'; $('#slideFill').style.width=(x+k.offsetWidth)+'px'; if(x>=max-1){ _sdrag=false; const cb=_slideDone; slideClose(); if(cb)cb(); } });
+  const end=()=>{ if(!_sdrag)return; _sdrag=false; slideReset(); };
+  k.addEventListener('pointerup',end); k.addEventListener('pointercancel',end);
+})();
 function toggleFs(){
   const on=!document.body.classList.contains('fs');
   document.body.classList.toggle('fs',on);
@@ -1912,6 +1977,7 @@ $('#zoneChips').addEventListener('click',e=>{const b=e.target.closest('.chip');i
 function renderAZoneChips(){$('#aZoneChips').innerHTML=ZONES.map(z=>{const f=zoneColorOf(z);const on=z.code===aZone;const st=on?`background:${f.ink};border-color:${f.ink};color:#fff;`:`background:${f.bg};border-color:${f.ink};color:${f.ink};`;return `<button class="chip ${on?'on':''}" data-zone="${esc(z.code)}" style="${st}">${esc(z.code)} ${esc(z.label)}</button>`;}).join('');}
 function renderAShow(){const b=$('#aShow');b.classList.toggle('on',aShow);b.textContent=aShow?'★ 表示する':'表示しない';}
 function openAlertEdit(a){
+  if(locked)return;
   editingAlert=a||null;
   aZone=a?a.zone:((ZONES[0]&&ZONES[0].code)||'その他');
   aShow=a?!a.hidden:true;
