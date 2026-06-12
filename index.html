@@ -220,6 +220,8 @@
   .imgico:active{transform:scale(.92);filter:brightness(.92);}
   /* リスト行の写真ゾーン（右側・少し濃いめ・タップで表示） */
   .srow-photo{flex:0 0 22%;min-width:60px;align-self:stretch;margin:-15px -15px -15px 0;display:grid;place-items:center;font-size:18px;background:rgba(0,0,0,calc(var(--badge-a) + .05));border-left:1px solid rgba(0,0,0,.10);}
+  .srow-bag{flex:none;align-self:center;font-size:11px;font-weight:800;color:var(--green-d);white-space:nowrap;background:rgba(255,255,255,.6);border-radius:8px;padding:3px 8px;margin-left:6px;}
+  .grpbag{flex:none;font-size:11px;font-weight:800;color:var(--green-d);white-space:nowrap;margin-left:8px;}
   .srow-photo:active{filter:brightness(.93);}
   body.fs .srow-photo{margin:-18px -16px -18px 0;}
   /* 検索＋目次バー（編集・品目） */
@@ -635,7 +637,7 @@
 </div>
 
 <script>
-const APP_VER='20260612-032516';                 // ビルド毎に自動で更新される
+const APP_VER='20260612-060537';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1068,16 +1070,20 @@ function groupItems(items,key){
   if(key==='type'){const out=[];let c=null;for(const it of items){if(!c||c.name!==it.type){c={kind:'type',name:it.type,items:[]};out.push(c);}c.items.push(it);}return out;}
   return [{kind:null,items}];
 }
-function groupHeader(g){
-  if(g.kind==='zone'){const z=zoneOf(g.code);return `<div class="grphead">${bdg(g.code)}<span class="nm">${esc(z.label)}</span><span class="ln"></span></div>`;}
-  if(g.kind==='type')return `<div class="grphead"><span class="nm" style="font-size:13px;color:var(--green-d)">${esc(g.name)}</span><span class="ln"></span></div>`;
+function groupHeader(g,stat){
+  const bag=(stat&&stat.N>0)?`<span class="grpbag">🛍 ${stat.n} / ${stat.N} 枚</span>`:'';
+  if(g.kind==='zone'){const z=zoneOf(g.code);return `<div class="grphead">${bdg(g.code)}<span class="nm">${esc(z.label)}</span><span class="ln"></span>${bag}</div>`;}
+  if(g.kind==='type')return `<div class="grphead"><span class="nm" style="font-size:13px;color:var(--green-d)">${esc(g.name)}</span><span class="ln"></span>${bag}</div>`;
   return '';
 }
 const tripTotal=()=>catalog.filter(i=>i.qty>0&&!i.isAlert).reduce((s,i)=>s+(i.price||0)*i.qty,0);
 
 /* ===== LIST ===== */
-function totalBags(){ return catalog.reduce((s,i)=>{ if(i.hidden||i.isAlert)return s; const q=i.qty||0,cap=i.bagCap||0; return s+((cap>=1&&q>0)?Math.ceil(q/cap):0); },0); }
-function updateBagTip(){ const el=$('#bagTip'); if(!el)return; const n=totalBags(); if(n>0){ el.textContent='🛍 ビニール袋 '+n+'枚'; el.style.display='block'; } else { el.style.display='none'; } }
+function bagsFor(it){ const q=it.qty||0,cap=it.bagCap||0; return (cap>=1&&q>0)?Math.ceil(q/cap):0; }
+function inGroup(it,g){ return g.kind==='zone'?it.zone===g.code:g.kind==='type'?it.type===g.name:false; }
+function groupBagStat(g){ let n=0,N=0; for(const it of catalog){ if(it.isAlert||it.hidden||(it.qty||0)<=0||!inGroup(it,g))continue; const b=bagsFor(it); N+=b; if(!it.done)n+=b; } return {n,N}; }   // n=のこり / N=総数
+function totalBagStat(){ let n=0,N=0; for(const i of catalog){ if(i.isAlert||i.hidden||(i.qty||0)<=0)continue; const b=bagsFor(i); N+=b; if(!i.done)n+=b; } return {n,N}; }
+function updateBagTip(){ const el=$('#bagTip'); if(!el)return; const {n,N}=totalBagStat(); if(N>0){ el.textContent=`🛍 ビニール袋 ${n} / ${N} 枚`; el.style.display='block'; } else { el.style.display='none'; } }
 function renderList(){ saveLocal(); updateBagTip();
   const realTrip=catalog.filter(i=>i.qty>0&&!i.isAlert);
   const doneReal=realTrip.filter(i=>i.done);
@@ -1102,26 +1108,37 @@ function renderList(){ saveLocal(); updateBagTip();
   let groups=groupItems(sortItems(show,listSort),listSort);
   if(revMode){ groups=groups.slice().reverse(); groups.forEach(g=>g.items=g.items.slice().reverse()); }
   for(const g of groups){
-    html+='<div class="grp">';
-    if(!revMode) html+=groupHeader(g);
+    const gs=groupBagStat(g);
+    html+='<div class="grp" data-zone="'+(g.kind==='zone'?esc(g.code):'')+'">';
+    if(!revMode) html+=groupHeader(g,gs);
     for(const it of g.items){
       if(it.isAlert){ html+=`<div class="srow alert" data-uid="${it.uid}"><span class="nm">⚡ ${esc(it.name||'')}</span></div>`; continue; }
       const rem=Math.max(0,it.qty-(it.got||0));
       const multi=it.qty>1;
       const hot=!it.done&&rem>=2;
       const f=zoneColorOf(zoneOf(it.zone));
+      const nb=bagsFor(it);
       let qhtml='';
       if(!it.done&&multi){ qhtml=`<div class="bigq"><span class="dots">${'●'.repeat(Math.min(rem,15))}</span><span class="num">あと${rem}こ</span></div>`; }
       else if(it.done&&multi){ qhtml=`<div class="bigq donef"><span class="num">${it.qty}こ</span></div>`; }
       html+=`<div class="srow ${it.done?'done':''} ${hot?'hot':''}" data-uid="${it.uid}" style="background:${f.bg};border-left:5px solid ${f.ink};">
         <div class="body"><span class="nm">${esc(it.name)}</span>${it.product?`<div class="prod">${esc(it.product)}</div>`:''}${qhtml}</div>
-        ${showBadge?bdg(it.zone,'bdg'):''}${it.image?'<div class="srow-photo">📷</div>':''}</div>`;
+        ${nb>0?`<span class="srow-bag">袋 ${nb}枚</span>`:''}${showBadge?bdg(it.zone,'bdg'):''}${it.image?'<div class="srow-photo">📷</div>':''}</div>`;
     }
-    if(revMode) html+=groupHeader(g);
+    if(revMode) html+=groupHeader(g,gs);
     html+='</div>';
   }
   area.innerHTML=html;
   $('#restoreWrap').innerHTML=(listSeg==='done'&&show.length>0)?'<button id="restoreAllBtn" class="restoreall">↩︎ ぜんぶ のこりに もどす</button>':'';
+}
+function updateSectionBags(){                       // カゴに入れた時などに各セクションの 🛍 n/N を更新
+  document.querySelectorAll('#listArea .grp[data-zone]').forEach(grp=>{
+    const code=grp.getAttribute('data-zone'); if(!code)return;
+    const st=groupBagStat({kind:'zone',code}); const head=grp.querySelector('.grphead'); if(!head)return;
+    let b=head.querySelector('.grpbag');
+    if(st.N>0){ if(!b){ b=document.createElement('span'); b.className='grpbag'; head.appendChild(b); } b.textContent=`🛍 ${st.n} / ${st.N} 枚`; }
+    else if(b){ b.remove(); }
+  });
 }
 function updateListChrome(){                       // 行は触らずヘッダーの数字だけ更新（全再描画しない）
   const realTrip=catalog.filter(i=>i.qty>0&&!i.isAlert);
@@ -1130,6 +1147,7 @@ function updateListChrome(){                       // 行は触らずヘッダ�
   $('#listTotal').textContent=yen(taxIncl(tripTotal()));
   $('#checkoutBtn').disabled=done.length===0;
   $('#checkoutTxt').textContent=done.length>0?`カゴの ${done.length}こ を記録する`:'カゴに入れたものを記録';
+  updateBagTip(); updateSectionBags();             // 袋の n/N も即反映
 }
 function dropListRow(row){                          // 消えた1行だけDOMから外す（空グループも片付け）
   if(!row)return;const grp=row.parentElement;row.remove();
