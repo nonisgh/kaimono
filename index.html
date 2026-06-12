@@ -632,7 +632,7 @@
 </div>
 
 <script>
-const APP_VER='20260612-010937';                 // ビルド毎に自動で更新される
+const APP_VER='20260612-013457';                 // ビルド毎に自動で更新される
 (function(){                                    // 新しい版が公開されてたら自動で読み直す（キャッシュ消し不要）
   function check(){
     fetch(location.pathname+'?cb='+Date.now(),{cache:'no-store'})
@@ -1299,7 +1299,7 @@ function jumpToZone(areaSel,code){
   afterScroll(()=>{                              // フラッシュとボヨンを同じタイミングで
     flashZone(el,code);
     const b=el.querySelector('.grphead .badge'); if(b&&b.animate){ b.style.transformOrigin='center'; b.animate([{transform:'scale(1)'},{transform:'scale(1.36)',offset:.25},{transform:'scale(.88)',offset:.55},{transform:'scale(1.12)',offset:.78},{transform:'scale(1)'}],{duration:540,easing:'cubic-bezier(.34,1.56,.64,1)'}); }
-  },14);
+  });
 }
 function flashZone(el,code){                    // 売り場ブロックの中に重ねる＝スクロール中でもズレない
   if(!flashOn)return;
@@ -1309,11 +1309,12 @@ function flashZone(el,code){                    // 売り場ブロックの中�
   el.appendChild(ov);
   ov.animate([{opacity:1},{opacity:1,offset:.3},{opacity:0}],{duration:620,easing:'ease-out'}).onfinish=()=>ov.remove();
 }
-function afterScroll(cb,thr){                  // 減速して1フレーム移動量が thr px 以下になった所で実行（既定5＝ほぼ停止／大きいほど早い）
-  thr=thr||5; let last=window.scrollY,fast=false,tries=0;
+function afterScroll(cb){                       // スクロールが“実際に止まった”瞬間に実行（ブラウザの減速差に強い）
+  let last=window.scrollY,still=0,moved=false,tries=0;
   const tick=()=>{ const y=window.scrollY,d=Math.abs(y-last); last=y; tries++;
-    if(d>8)fast=true;
-    if((fast&&d<=thr)||(tries>=6&&d<1.5)||tries>100){ cb(); return; }
+    if(d>3)moved=true;
+    if(d<1)still++; else still=0;
+    if((moved&&still>=2)||(!moved&&tries>=8)||tries>180){ cb(); return; }   // 数フレーム動かなくなったら=停止
     requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
 }
