@@ -1118,11 +1118,25 @@ async function accLoadCategories(){
   if(!list.length){ TYPES=DEFAULT_TYPES.slice(); }
   else { if(!list.includes('その他')) list.push('その他'); TYPES=list; }
 }
+/* iOSと同じハッシュ（SHA-256, "okaimono-pw-v1|"+pw）。空ならnull。 */
+async function accHash(pw){
+  const p=(pw||'').trim(); if(!p) return null;
+  const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode('okaimono-pw-v1|'+p));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 async function accLogin(){
   const h=accNorm($('#acctHandle')?$('#acctHandle').value:'');
   if(!h){ toast('IDを入れてね'); return; }
   if(!SB.ready()){ toast('同期OFFのときはログインできません'); return; }
-  try{ await SB.client.from('accounts').upsert({id:h},{onConflict:'id',ignoreDuplicates:true}); }catch(e){ console.error(e); }
+  const pw=$('#acctPw')?$('#acctPw').value:'';
+  // 既存アカウントのパスワードを確認（設定済みなら一致しないとログイン不可）
+  const r=await SB.client.from('accounts').select('id,password').eq('id',h).maybeSingle();
+  const existingPw=(!r.error && r.data && r.data.password) ? r.data.password : '';
+  if(existingPw){
+    if(await accHash(pw)!==existingPw){ toast('パスワードが違います'); return; }
+  } else {
+    try{ await SB.client.from('accounts').upsert({id:h},{onConflict:'id',ignoreDuplicates:true}); }catch(e){ console.error(e); }
+  }
   ACC.handle=h; localStorage.setItem('kaimono.handle',h);
   await accLoadProjects(); renderAcct(); toast('ログインしました');
 }
@@ -1141,25 +1155,27 @@ async function accSetProject(id,name){
 function renderAcct(){
   const b=$('#acctBody'); if(!b) return;
   if(!ACC.handle){
-    b.innerHTML='<div class="field"><label>ID（ハンドル名）</label>'
-      +'<input id="acctHandle" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="例: norihisa"></div>'
-      +'<div class="sheetbtns" style="margin-top:6px;"><button class="b-save" id="acctLoginBtn">ログイン</button></div>'
-      +'<div style="font-size:12px;color:var(--ink-soft);margin-top:8px;">同じIDで再ログインできます。共有された店舗が一覧に出ます。（作成・共有はiOSアプリで）</div>';
+    b.innerHTML='<div class="field"><label style="font-size:14px;">ID（ハンドル名）</label>'
+      +'<input id="acctHandle" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="例: norihisa" style="font-size:19px;"></div>'
+      +'<div class="field"><label style="font-size:14px;">パスワード（保護された店舗のみ）</label>'
+      +'<input id="acctPw" type="password" autocapitalize="off" autocorrect="off" placeholder="未設定なら空のまま" style="font-size:19px;"></div>'
+      +'<div class="sheetbtns" style="margin-top:6px;"><button class="b-save" id="acctLoginBtn" style="font-size:17px;">ログイン</button></div>'
+      +'<div style="font-size:13.5px;color:var(--ink-soft);margin-top:10px;line-height:1.6;">同じIDで再ログインできます。共有された店舗が一覧に出ます。（店舗の作成・共有・パスワード設定はiOSアプリで）</div>';
   } else {
     const rows=ACC.projects.map(p=>{
       const cur=p.id===PROJECT_ID;
       return '<button class="acctstore" data-id="'+esc(p.id)+'" data-name="'+esc(p.name)+'" '
-        +'style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;font-family:inherit;padding:10px 12px;margin:5px 0;border:1.5px solid var(--line);border-radius:12px;background:'+(cur?'var(--paper2)':'var(--card)')+';cursor:pointer;">'
-        +'<span style="font-size:16px;">'+(cur?'✅':'🏪')+'</span>'
-        +'<b style="flex:1;font-size:15px;">'+esc(p.name)+'</b>'
-        +(cur?'<span style="font-size:10px;font-weight:800;color:#fff;background:var(--green);border-radius:999px;padding:2px 7px;">表示中</span>':'')
-        +'<span style="font-size:10px;font-weight:800;color:var(--green-d);">'+esc(roleLabel(p.role))+'</span>'
+        +'style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;font-family:inherit;padding:13px 13px;margin:6px 0;border:1.5px solid var(--line);border-radius:13px;background:'+(cur?'var(--paper2)':'var(--card)')+';cursor:pointer;">'
+        +'<span style="font-size:18px;">'+(cur?'✅':'🏪')+'</span>'
+        +'<b style="flex:1;font-size:17px;">'+esc(p.name)+'</b>'
+        +(cur?'<span style="font-size:11px;font-weight:800;color:#fff;background:var(--green);border-radius:999px;padding:3px 8px;">表示中</span>':'')
+        +'<span style="font-size:11.5px;font-weight:800;color:var(--green-d);">'+esc(roleLabel(p.role))+'</span>'
         +'</button>';
     }).join('');
-    b.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><b style="font-size:15px;">@'+esc(ACC.handle)+'</b>'
-      +'<span style="flex:1;"></span><button class="b-cancel" id="acctLogoutBtn" style="padding:6px 12px;">ログアウト</button></div>'
-      +'<div style="font-size:12px;color:var(--ink-soft);margin-bottom:2px;">店舗（タップで切替）</div>'
-      +(rows||'<div style="font-size:13px;color:var(--ink-soft);padding:8px;">参加している店舗がありません（iOSアプリで作成・共有できます）</div>');
+    b.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><b style="font-size:17px;">@'+esc(ACC.handle)+'</b>'
+      +'<span style="flex:1;"></span><button class="b-cancel" id="acctLogoutBtn" style="padding:8px 14px;font-size:14px;">ログアウト</button></div>'
+      +'<div style="font-size:13px;color:var(--ink-soft);margin-bottom:2px;">店舗（タップで切替）</div>'
+      +(rows||'<div style="font-size:14px;color:var(--ink-soft);padding:8px;">参加している店舗がありません（iOSアプリで作成・共有できます）</div>');
   }
 }
 function openAcct(){ renderAcct(); $('#acctBg').classList.add('open'); $('#acctSheet').classList.add('open'); }
