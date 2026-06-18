@@ -945,15 +945,18 @@ const SB={
   key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtmc2x5cGhwbGN0ZGZqaXdzanV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NDkzMjQsImV4cCI6MjA5NjUyNTMyNH0.EAo76m7MLbeLFYZvAQVb6zMfzYlovMbCS_6wefYzsYQ',
   client:null, ready(){return !!this.client;}
 };
+/* 段階対応・第1段：当面 web はこの店舗(タイヨー成田店)だけを読み書きする。
+   （iOS は店舗ごとに分離済み。web は次の段で店舗切替に対応予定。） */
+var PROJECT_ID='14b58022-c9e6-4674-b447-8397913e13ca';   // タイヨー成田店
 function initDB(){ if(SB.url&&SB.key&&window.supabase){ try{SB.client=window.supabase.createClient(SB.url,SB.key);}catch(e){console.error(e);} } }
 let syncTimer,lastWrite=0;
 function showSync(kind){ const d=document.getElementById('syncDot'); if(!d)return; d.className='syncdot on '+kind; clearTimeout(syncTimer); syncTimer=setTimeout(()=>{d.className='syncdot';},900); }
 function syncPulse(){ if(!SB.ready())return; lastWrite=Date.now(); showSync('up'); }
 function syncPulseDown(){ if(!SB.ready())return; showSync('down'); }
 
-function itemRow(it){return {item_no:it.id,name:it.name,category:it.type,zone_code:it.zone,price:it.price,qty:it.qty,done:it.done,keep:it.keep,keep_qty:it.keepQty,hidden:!!it.hidden,got:it.got||0,picked_at:it.picked_at||null,is_alert:!!it.isAlert,product:it.product||null,image_path:it.image||null,bag_cap:it.bagCap||0,temp_until:it.tempUntil||null,sold_out:!!it.soldOut,updated_at:new Date().toISOString()};}
+function itemRow(it){return {item_no:it.id,name:it.name,category:it.type,zone_code:it.zone,price:it.price,qty:it.qty,done:it.done,keep:it.keep,keep_qty:it.keepQty,hidden:!!it.hidden,got:it.got||0,picked_at:it.picked_at||null,is_alert:!!it.isAlert,product:it.product||null,image_path:it.image||null,bag_cap:it.bagCap||0,temp_until:it.tempUntil||null,sold_out:!!it.soldOut,updated_at:new Date().toISOString(),project_id:PROJECT_ID};}
 function itemRowId(it){return Object.assign({id:it.uid},itemRow(it));}
-function zoneRow(z,i){return {code:z.code,label:z.label,color:z.fam,sort_order:i};}
+function zoneRow(z,i){return {code:z.code,label:z.label,color:z.fam,sort_order:i,project_id:PROJECT_ID};}
 
 function sbItemUpdate(it){ if(!SB.ready())return; syncPulse(); SB.client.from('items').update(itemRow(it)).eq('id',it.uid).then(r=>{if(r.error)console.error(r.error);}); }
 const IMG_BUCKET='item-images';
@@ -996,25 +999,25 @@ async function sbItemInsert(it){ syncPulse(); const {data,error}=await SB.client
 function sbItemsBulk(items){ if(!SB.ready()||!items.length)return; syncPulse(); SB.client.from('items').upsert(items.map(itemRowId)).then(r=>{if(r.error)console.error(r.error);}); }
 function sbSet(uid,fields){ if(!SB.ready())return; syncPulse(); SB.client.from('items').update(Object.assign({updated_at:new Date().toISOString()},fields)).eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
 function sbBulkSet(rows){ if(!SB.ready()||!rows.length)return; syncPulse(); const ts=new Date().toISOString(); SB.client.from('items').upsert(rows.map(r=>Object.assign({updated_at:ts},r))).then(r=>{if(r.error)console.error(r.error);}); }
-function sbZonesSaveAll(){ if(!SB.ready())return; syncPulse(); SB.client.from('zones').upsert(ZONES.map((z,i)=>zoneRow(z,i))).then(r=>{if(r.error)console.error(r.error);}); }
-function sbZoneUpdate(i){ if(!SB.ready())return; const z=ZONES[i]; if(!z)return; syncPulse(); SB.client.from('zones').update({label:z.label,color:z.fam,sort_order:i}).eq('code',z.code).then(r=>{if(r.error)console.error(r.error);}); }
-function sbZoneDelete(code){ if(!SB.ready())return; syncPulse(); SB.client.from('zones').delete().eq('code',code).then(r=>{if(r.error)console.error(r.error);}); }
-async function sbZoneRename(oldCode,newCode){ if(!SB.ready())return; syncPulse(); await SB.client.from('zones').update({code:newCode}).eq('code',oldCode); await SB.client.from('items').update({zone_code:newCode}).eq('zone_code',oldCode); }
-async function syncZonesFull(){ if(!SB.ready())return; syncPulse(); const del=await SB.client.from('zones').delete().not('code','is',null); if(del.error){console.error(del.error);return;} const ins=await SB.client.from('zones').insert(ZONES.map((z,i)=>zoneRow(z,i))); if(ins.error)console.error(ins.error); }
-function sbLogInsert(batchId,label,when,entries){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').insert(entries.map(e=>({batch_id:batchId,archived_at:when,label,name:e.name,qty:e.qty||1,price:e.price||0,zone_code:e.zone||null,item_id:e.itemId??null,picked_at:e.picked||null}))).then(r=>{if(r.error)console.error(r.error);}); }
-function sbLogDelete(bid){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').delete().eq('batch_id',bid).then(r=>{if(r.error)console.error(r.error);}); }
+function sbZonesSaveAll(){ if(!SB.ready())return; syncPulse(); SB.client.from('zones').upsert(ZONES.map((z,i)=>zoneRow(z,i)),{onConflict:'project_id,code'}).then(r=>{if(r.error)console.error(r.error);}); }
+function sbZoneUpdate(i){ if(!SB.ready())return; const z=ZONES[i]; if(!z)return; syncPulse(); SB.client.from('zones').update({label:z.label,color:z.fam,sort_order:i}).eq('code',z.code).eq('project_id',PROJECT_ID).then(r=>{if(r.error)console.error(r.error);}); }
+function sbZoneDelete(code){ if(!SB.ready())return; syncPulse(); SB.client.from('zones').delete().eq('code',code).eq('project_id',PROJECT_ID).then(r=>{if(r.error)console.error(r.error);}); }
+async function sbZoneRename(oldCode,newCode){ if(!SB.ready())return; syncPulse(); await SB.client.from('zones').update({code:newCode}).eq('code',oldCode).eq('project_id',PROJECT_ID); await SB.client.from('items').update({zone_code:newCode}).eq('zone_code',oldCode).eq('project_id',PROJECT_ID); }
+async function syncZonesFull(){ if(!SB.ready())return; syncPulse(); const del=await SB.client.from('zones').delete().eq('project_id',PROJECT_ID); if(del.error){console.error(del.error);return;} const ins=await SB.client.from('zones').insert(ZONES.map((z,i)=>zoneRow(z,i))); if(ins.error)console.error(ins.error); }
+function sbLogInsert(batchId,label,when,entries){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').insert(entries.map(e=>({batch_id:batchId,archived_at:when,label,name:e.name,qty:e.qty||1,price:e.price||0,zone_code:e.zone||null,item_id:e.itemId??null,picked_at:e.picked||null,project_id:PROJECT_ID}))).then(r=>{if(r.error)console.error(r.error);}); }
+function sbLogDelete(bid){ if(!SB.ready())return; syncPulse(); SB.client.from('purchase_log').delete().eq('batch_id',bid).eq('project_id',PROJECT_ID).then(r=>{if(r.error)console.error(r.error);}); }
 
-async function loadZones(){ const {data,error}=await SB.client.from('zones').select('*').order('sort_order'); if(error){console.error(error);return;} if(data&&data.length){ const seen=new Set(),arr=[]; for(const r of data){ if(seen.has(r.code))continue; seen.add(r.code); arr.push({code:r.code,label:r.label,fam:r.color}); } ZONES=arr; if(!ZONES.some(z=>z.code==='その他'))ZONES.push({code:'その他',label:'その他',fam:'etc'}); recomputeZones(); } }
-async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden,got:r.got||0,picked_at:r.picked_at||null,isAlert:(!!r.is_alert||r.category==='アラート'),product:r.product||'',image:r.image_path||'',bagCap:r.bag_cap||0,tempUntil:r.temp_until||null,soldOut:!!r.sold_out,updatedAt:r.updated_at||null})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } preloadImages(); }
-async function loadHistory(){ const {data,error}=await SB.client.from('purchase_log').select('*').order('archived_at',{ascending:false}); if(error){console.error(error);return;} const map=new Map(); for(const r of data){ if(!map.has(r.batch_id))map.set(r.batch_id,{bid:r.batch_id,date:r.label,list:[]}); map.get(r.batch_id).list.push({name:r.qty>1?`${r.name} ×${r.qty}`:r.name,zone:r.zone_code||null,itemId:r.item_id??null,picked:r.picked_at||null}); } history=[...map.values()]; }
-async function loadBookmarks(){ if(!SB.ready())return; const {data,error}=await SB.client.from('bookmarks').select('*').order('created_at',{ascending:false}); if(error){console.warn('bookmarks 読み込み不可（テーブル未作成かも）',error.message);return;} bookmarks=data.map(r=>({uid:Number(r.id),name:r.name||'',data:Array.isArray(r.data)?r.data:[],color:r.color||'',created_at:r.created_at})); }
-async function sbBookmarkInsert(name,data){ if(!SB.ready())return null; syncPulse(); const {data:d,error}=await SB.client.from('bookmarks').insert({name,data}).select().single(); if(error){console.error(error);return null;} return d.id; }
+async function loadZones(){ const {data,error}=await SB.client.from('zones').select('*').eq('project_id',PROJECT_ID).order('sort_order'); if(error){console.error(error);return;} if(data&&data.length){ const seen=new Set(),arr=[]; for(const r of data){ if(seen.has(r.code))continue; seen.add(r.code); arr.push({code:r.code,label:r.label,fam:r.color}); } ZONES=arr; if(!ZONES.some(z=>z.code==='その他'))ZONES.push({code:'その他',label:'その他',fam:'etc'}); recomputeZones(); } }
+async function loadItems(){ const {data,error}=await SB.client.from('items').select('*').eq('project_id',PROJECT_ID).order('item_no'); if(error){console.error(error);return;} catalog=data.map(r=>({uid:Number(r.id),id:r.item_no,name:r.name,type:r.category,zone:r.zone_code,price:r.price||0,qty:r.qty||0,done:!!r.done,keep:!!r.keep,keepQty:r.keep_qty||0,hidden:!!r.hidden,got:r.got||0,picked_at:r.picked_at||null,isAlert:(!!r.is_alert||r.category==='アラート'),product:r.product||'',image:r.image_path||'',bagCap:r.bag_cap||0,tempUntil:r.temp_until||null,soldOut:!!r.sold_out,updatedAt:r.updated_at||null})); const now=Date.now(); for(const [uid,o] of localOverride){ if(now<o.until){ const it=catalog.find(i=>i.uid===uid); if(it)Object.assign(it,o.fields); } else localOverride.delete(uid); } const ids=catalog.map(i=>i.uid); if(catalog.length&&(new Set(ids).size!==ids.length||ids.some(x=>!Number.isFinite(x)))){ console.warn('items の id が重複/欠落しています',ids); toast('⚠️ 同期IDが重複しています。テーブル定義を直してね'); } preloadImages(); }
+async function loadHistory(){ const {data,error}=await SB.client.from('purchase_log').select('*').eq('project_id',PROJECT_ID).order('archived_at',{ascending:false}); if(error){console.error(error);return;} const map=new Map(); for(const r of data){ if(!map.has(r.batch_id))map.set(r.batch_id,{bid:r.batch_id,date:r.label,list:[]}); map.get(r.batch_id).list.push({name:r.qty>1?`${r.name} ×${r.qty}`:r.name,zone:r.zone_code||null,itemId:r.item_id??null,picked:r.picked_at||null}); } history=[...map.values()]; }
+async function loadBookmarks(){ if(!SB.ready())return; const {data,error}=await SB.client.from('bookmarks').select('*').eq('project_id',PROJECT_ID).order('created_at',{ascending:false}); if(error){console.warn('bookmarks 読み込み不可（テーブル未作成かも）',error.message);return;} bookmarks=data.map(r=>({uid:Number(r.id),name:r.name||'',data:Array.isArray(r.data)?r.data:[],color:r.color||'',created_at:r.created_at})); }
+async function sbBookmarkInsert(name,data){ if(!SB.ready())return null; syncPulse(); const {data:d,error}=await SB.client.from('bookmarks').insert({name,data,project_id:PROJECT_ID}).select().single(); if(error){console.error(error);return null;} return d.id; }
 function sbBookmarkDelete(uid){ if(!SB.ready())return; syncPulse(); SB.client.from('bookmarks').delete().eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
 function sbBookmarkUpdate(uid,fields){ if(!SB.ready())return; syncPulse(); SB.client.from('bookmarks').update(fields).eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
 async function seedIfEmpty(){
-  const z=await SB.client.from('zones').select('code',{count:'exact',head:true});
+  const z=await SB.client.from('zones').select('code',{count:'exact',head:true}).eq('project_id',PROJECT_ID);
   if(!z.error && z.count===0) await SB.client.from('zones').insert(ZONES.map((zz,i)=>zoneRow(zz,i)));
-  const it=await SB.client.from('items').select('id',{count:'exact',head:true});
+  const it=await SB.client.from('items').select('id',{count:'exact',head:true}).eq('project_id',PROJECT_ID);
   if(!it.error && it.count===0) await SB.client.from('items').insert(catalog.map(itemRow));
 }
 async function refresh(){
@@ -1052,7 +1055,7 @@ function queueSet(uid,fields){
 }
 async function flushWrites(){
   if(!SB.ready()||writeQ.size===0)return;
-  const rows=[...writeQ.entries()].map(([uid,f])=>Object.assign({id:uid},f)); writeQ.clear();
+  const rows=[...writeQ.entries()].map(([uid,f])=>Object.assign({id:uid,project_id:PROJECT_ID},f)); writeQ.clear();
   syncPulse(); lastWrite=Date.now();
   const {error}=await SB.client.from('items').upsert(rows); if(error)console.error(error);
 }
@@ -1296,7 +1299,7 @@ async function mergeSameDay(){
       for(const [day,arr] of mergeable){
         const bids=arr.map(h=>h.bid).filter(b=>b!=null);
         if(bids.length<2)continue;
-        const {data,error}=await SB.client.from('purchase_log').select('*').in('batch_id',bids);
+        const {data,error}=await SB.client.from('purchase_log').select('*').eq('project_id',PROJECT_ID).in('batch_id',bids);
         if(error)throw error;
         const agg=new Map(); let latest=null;
         for(const r of (data||[])){
@@ -1306,9 +1309,9 @@ async function mergeSameDay(){
           if(!latest||r.archived_at>latest)latest=r.archived_at;
         }
         const newBid=Date.now()+Math.floor(Math.random()*100000);
-        const {error:de}=await SB.client.from('purchase_log').delete().in('batch_id',bids);
+        const {error:de}=await SB.client.from('purchase_log').delete().eq('project_id',PROJECT_ID).in('batch_id',bids);
         if(de)throw de;
-        const {error:ie}=await SB.client.from('purchase_log').insert([...agg.values()].map(e=>({batch_id:newBid,archived_at:latest||new Date().toISOString(),label:day,name:e.name,qty:e.qty,price:e.price,zone_code:e.zone,item_id:e.itemId,picked_at:e.picked})));
+        const {error:ie}=await SB.client.from('purchase_log').insert([...agg.values()].map(e=>({batch_id:newBid,archived_at:latest||new Date().toISOString(),label:day,name:e.name,qty:e.qty,price:e.price,zone_code:e.zone,item_id:e.itemId,picked_at:e.picked,project_id:PROJECT_ID})));
         if(ie)throw ie;
       }
       await loadHistory(); renderHist(); haptic('ok'); toast('同じ日付をまとめました');
@@ -1556,12 +1559,12 @@ async function importTargets(src){                          // → [{it,qty}] / 
   if(!SB.ready()){toast('同期ONのときに使えます');return null;}
   let rows;
   if(src.type==='recent'){
-    const {data,error}=await SB.client.from('purchase_log').select('name,qty,item_id,batch_id,archived_at').order('archived_at',{ascending:false}).limit(300);
+    const {data,error}=await SB.client.from('purchase_log').select('name,qty,item_id,batch_id,archived_at').eq('project_id',PROJECT_ID).order('archived_at',{ascending:false}).limit(300);
     if(error){console.error(error);toast('取込に失敗');return null;}
     if(!data.length){toast('履歴がまだ無いよ');return null;}
     rows=data.filter(r=>r.batch_id===data[0].batch_id);
   } else {
-    const {data,error}=await SB.client.from('purchase_log').select('name,qty,item_id').eq('batch_id',src.bid);
+    const {data,error}=await SB.client.from('purchase_log').select('name,qty,item_id').eq('project_id',PROJECT_ID).eq('batch_id',src.bid);
     if(error){console.error(error);toast('取込に失敗');return null;}
     if(!data||!data.length){toast('この履歴は空でした');return null;}
     rows=data;
