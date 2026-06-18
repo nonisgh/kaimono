@@ -400,6 +400,7 @@
       <div><h1>おかいものメモ（β版）</h1><div class="sub">売り場を回る順に</div></div>
       <div class="headright">
         <div class="syncdot" id="syncDot"><span class="ic">☁</span></div>
+        <button class="gear" id="storeBtn" title="店舗・ログイン">🏪</button>
         <button class="gear" id="gearBtn" title="売り場の管理">⚙</button>
       </div>
     </div>
@@ -597,6 +598,13 @@
   <div style="display:flex;gap:8px;margin-top:8px;"><button class="ghostbtn" id="bmEditAdd" style="flex:1;">＋ 今の内容を追加</button><button class="ghostbtn" id="bmEditOver" style="flex:1;">⤓ 上書き</button></div>
   <div class="sheetbtns" style="margin-top:10px;"><button class="b-del" id="bmEditDelete">削除</button><button class="b-cancel" id="bmEditCancel">やめる</button><button class="b-save" id="bmEditSave">保存</button></div>
 </div>
+<div class="sheetbg" id="acctBg"></div>
+<div class="sheet" id="acctSheet">
+  <h3 style="margin:0 0 10px;">店舗・ログイン</h3>
+  <div id="acctBody"></div>
+  <div class="sheetbtns" style="margin-top:10px;"><button class="b-cancel" id="acctClose">とじる</button></div>
+</div>
+
 <div class="sheetbg" id="zoneBg"></div>
 <div class="sheet" id="zoneSheet">
   <div class="grab"></div>
@@ -750,7 +758,8 @@ recomputeZones();
 const zoneOf=c=>ZONES[zoneIdx[c]]||ZONES[ZONES.length-1];
 
 /* ===== 種別 ===== */
-const TYPES=['野菜','果物','きのこ','肉','魚','卵','乳製品','パン','大豆製品','惣菜','冷食','麺','菓子','飲料','粉・乾物','調味料','缶詰','日用品','その他'];
+const DEFAULT_TYPES=['野菜','果物','きのこ','肉','魚','卵','乳製品','パン','大豆製品','惣菜','冷食','麺','菓子','飲料','粉・乾物','調味料','缶詰','日用品','その他'];
+let TYPES=DEFAULT_TYPES.slice();   // 種別は店舗ごと(projects.categories)。未設定の店舗は既定19種。
 const typeIdx={}; TYPES.forEach((t,i)=>typeIdx[t]=i);
 const zoneDefaultType={A:'日用品',H:'日用品','②-1':'日用品','②-2':'その他','①-1':'冷食','①-2':'日用品',B:'野菜',C:'野菜',D:'パン',G:'乳製品',F:'肉',E:'魚','③-1':'菓子','④-1':'飲料','④-2':'粉・乾物','⑤-1':'調味料','⑤-2':'調味料','⑥-1':'調味料','⑥-2':'調味料','⑦-1':'卵','その他':'その他'};
 
@@ -947,7 +956,9 @@ const SB={
 };
 /* 段階対応・第1段：当面 web はこの店舗(タイヨー成田店)だけを読み書きする。
    （iOS は店舗ごとに分離済み。web は次の段で店舗切替に対応予定。） */
-var PROJECT_ID='14b58022-c9e6-4674-b447-8397913e13ca';   // タイヨー成田店
+/* 店舗切替対応(第2段)：選択中の店舗。未選択(初回/ゲスト)はタイヨー成田店。 */
+var DEFAULT_PROJECT_ID='14b58022-c9e6-4674-b447-8397913e13ca';   // タイヨー成田店
+var PROJECT_ID=localStorage.getItem('kaimono.currentProjectId')||DEFAULT_PROJECT_ID;
 function initDB(){ if(SB.url&&SB.key&&window.supabase){ try{SB.client=window.supabase.createClient(SB.url,SB.key);}catch(e){console.error(e);} } }
 let syncTimer,lastWrite=0;
 function showSync(kind){ const d=document.getElementById('syncDot'); if(!d)return; d.className='syncdot on '+kind; clearTimeout(syncTimer); syncTimer=setTimeout(()=>{d.className='syncdot';},900); }
@@ -1015,6 +1026,7 @@ async function sbBookmarkInsert(name,data){ if(!SB.ready())return null; syncPuls
 function sbBookmarkDelete(uid){ if(!SB.ready())return; syncPulse(); SB.client.from('bookmarks').delete().eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
 function sbBookmarkUpdate(uid,fields){ if(!SB.ready())return; syncPulse(); SB.client.from('bookmarks').update(fields).eq('id',uid).then(r=>{if(r.error)console.error(r.error);}); }
 async function seedIfEmpty(){
+  if(PROJECT_ID!==DEFAULT_PROJECT_ID) return;          // 既定店舗(タイヨー)以外には見本データを撒かない
   const z=await SB.client.from('zones').select('code',{count:'exact',head:true}).eq('project_id',PROJECT_ID);
   if(!z.error && z.count===0) await SB.client.from('zones').insert(ZONES.map((zz,i)=>zoneRow(zz,i)));
   const it=await SB.client.from('items').select('id',{count:'exact',head:true}).eq('project_id',PROJECT_ID);
@@ -1081,13 +1093,96 @@ function subscribe(){
     .on('postgres_changes',{event:'*',schema:'public',table:'app_state'},async()=>{ await loadLock(); renderActive(); })
     .subscribe();
 }
+/* ===== アカウント／店舗（第2段：ログイン＋店舗切替） ===== */
+var ACC={ handle: localStorage.getItem('kaimono.handle')||'', projects:[] };
+function accNorm(s){ return (s||'').trim().toLowerCase(); }
+function roleLabel(r){ return ({owner:'オーナー',edit:'編集',view:'閲覧',list:'リストのみ'})[r]||r; }
+
+async function accLoadProjects(){
+  if(!SB.ready()||!ACC.handle){ ACC.projects=[]; return; }
+  const m=await SB.client.from('project_members').select('project_id,role').eq('user_id',ACC.handle);
+  if(m.error){ console.error(m.error); ACC.projects=[]; return; }
+  const ids=(m.data||[]).map(r=>r.project_id);
+  if(!ids.length){ ACC.projects=[]; return; }
+  const p=await SB.client.from('projects').select('id,name,categories').in('id',ids);
+  if(p.error){ console.error(p.error); ACC.projects=[]; return; }
+  const roleBy={}; (m.data||[]).forEach(r=>roleBy[r.project_id]=r.role||'view');
+  ACC.projects=(p.data||[]).map(pr=>({id:pr.id,name:pr.name||'(名称なし)',categories:pr.categories,role:roleBy[pr.id]||'view'}))
+                           .sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+}
+/* 種別を現在店舗の projects.categories から。未設定の店舗は既定19種。 */
+async function accLoadCategories(){
+  if(!SB.ready()) return;
+  const r=await SB.client.from('projects').select('categories').eq('id',PROJECT_ID).maybeSingle();
+  let list=(!r.error && r.data && Array.isArray(r.data.categories)) ? r.data.categories.filter(x=>x) : [];
+  if(!list.length){ TYPES=DEFAULT_TYPES.slice(); }
+  else { if(!list.includes('その他')) list.push('その他'); TYPES=list; }
+}
+async function accLogin(){
+  const h=accNorm($('#acctHandle')?$('#acctHandle').value:'');
+  if(!h){ toast('IDを入れてね'); return; }
+  if(!SB.ready()){ toast('同期OFFのときはログインできません'); return; }
+  try{ await SB.client.from('accounts').upsert({id:h},{onConflict:'id',ignoreDuplicates:true}); }catch(e){ console.error(e); }
+  ACC.handle=h; localStorage.setItem('kaimono.handle',h);
+  await accLoadProjects(); renderAcct(); toast('ログインしました');
+}
+function accSignOut(){
+  ACC.handle=''; ACC.projects=[]; localStorage.removeItem('kaimono.handle');
+  renderAcct(); toast('ログアウトしました');
+}
+async function accSetProject(id,name){
+  if(id===PROJECT_ID){ closeAcct(); return; }
+  PROJECT_ID=id; localStorage.setItem('kaimono.currentProjectId',id);
+  await accLoadCategories();
+  if(SB.ready()){ try{ await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); }catch(e){ console.error(e); } }
+  renderActive(); renderAcct();
+  toast('「'+(name||'店舗')+'」に切り替えました');
+}
+function renderAcct(){
+  const b=$('#acctBody'); if(!b) return;
+  if(!ACC.handle){
+    b.innerHTML='<div class="field"><label>ID（ハンドル名）</label>'
+      +'<input id="acctHandle" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="例: norihisa"></div>'
+      +'<div class="sheetbtns" style="margin-top:6px;"><button class="b-save" id="acctLoginBtn">ログイン</button></div>'
+      +'<div style="font-size:12px;color:var(--ink-soft);margin-top:8px;">同じIDで再ログインできます。共有された店舗が一覧に出ます。（作成・共有はiOSアプリで）</div>';
+  } else {
+    const rows=ACC.projects.map(p=>{
+      const cur=p.id===PROJECT_ID;
+      return '<button class="acctstore" data-id="'+esc(p.id)+'" data-name="'+esc(p.name)+'" '
+        +'style="display:flex;align-items:center;gap:8px;width:100%;text-align:left;font-family:inherit;padding:10px 12px;margin:5px 0;border:1.5px solid var(--line);border-radius:12px;background:'+(cur?'var(--paper2)':'var(--card)')+';cursor:pointer;">'
+        +'<span style="font-size:16px;">'+(cur?'✅':'🏪')+'</span>'
+        +'<b style="flex:1;font-size:15px;">'+esc(p.name)+'</b>'
+        +(cur?'<span style="font-size:10px;font-weight:800;color:#fff;background:var(--green);border-radius:999px;padding:2px 7px;">表示中</span>':'')
+        +'<span style="font-size:10px;font-weight:800;color:var(--green-d);">'+esc(roleLabel(p.role))+'</span>'
+        +'</button>';
+    }).join('');
+    b.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><b style="font-size:15px;">@'+esc(ACC.handle)+'</b>'
+      +'<span style="flex:1;"></span><button class="b-cancel" id="acctLogoutBtn" style="padding:6px 12px;">ログアウト</button></div>'
+      +'<div style="font-size:12px;color:var(--ink-soft);margin-bottom:2px;">店舗（タップで切替）</div>'
+      +(rows||'<div style="font-size:13px;color:var(--ink-soft);padding:8px;">参加している店舗がありません（iOSアプリで作成・共有できます）</div>');
+  }
+}
+function openAcct(){ renderAcct(); $('#acctBg').classList.add('open'); $('#acctSheet').classList.add('open'); }
+function closeAcct(){ $('#acctBg').classList.remove('open'); $('#acctSheet').classList.remove('open'); }
+function accInit(){
+  const sb=$('#storeBtn'); if(sb) sb.addEventListener('click',openAcct);
+  const ac=$('#acctClose'); if(ac) ac.addEventListener('click',closeAcct);
+  const ab=$('#acctBg'); if(ab) ab.addEventListener('click',closeAcct);
+  const sh=$('#acctSheet'); if(sh) sh.addEventListener('click',async e=>{
+    if(e.target.closest('#acctLoginBtn')){ await accLogin(); return; }
+    if(e.target.closest('#acctLogoutBtn')){ accSignOut(); return; }
+    const st=e.target.closest('.acctstore'); if(st){ await accSetProject(st.dataset.id, st.dataset.name); }
+  });
+}
+
 async function init(){
   if(DEMO){ document.body.classList.add('demo'); const sub=document.querySelector('header .sub'); if(sub)sub.textContent='🧪 見本モード（保存はこの端末だけ）'; const ic=document.querySelector('#syncDot .ic'); if(ic)ic.textContent='🧪'; }
   if(!DEMO) initDB();                                  // 見本モードではDBにつながない
   applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide(); applyJumpFrac(); applyFlash(); applyLock();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さ・ロックを反映
   loadLocal(); renderActive(); preloadImages();      // まずローカルで即表示＋写真先読み
+  accInit();                                          // 店舗ボタン・ログインUIの配線
   if(SB.ready()){
-    try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); await loadLock(); }
+    try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); await loadLock(); await accLoadCategories(); await accLoadProjects(); }
     catch(e){ console.error(e); toast('同期エラー（コンソール参照）'); }
     renderActive(); subscribe();
   }
