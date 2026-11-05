@@ -1865,7 +1865,7 @@ function refreshMapBtn(){
   probe.onerror=()=>{ if(PROJECT_ID===pid) btn.style.display='none'; };
   probe.src=mapUrlFor(pid);
 }
-let _mp={scale:1,min:1,max:8,tx:0,ty:0,nw:0,nh:0,ptrs:new Map(),pinch:null,moved:false,lastTap:0};
+let _mp={scale:1,min:1,max:8,home:1,tx:0,ty:0,nw:0,nh:0,ptrs:new Map(),pinch:null,moved:false,lastTap:0};
 function mapVW(){ return window.innerWidth; }
 function mapVH(){ return window.innerHeight; }
 function mapApply(){ $('#mapImg').style.transform='translate('+_mp.tx+'px,'+_mp.ty+'px) scale('+_mp.scale+')'; }
@@ -1877,10 +1877,11 @@ function mapClamp(){
 }
 function mapFit(){
   if(!_mp.nw||!_mp.nh) return;
-  const s=Math.min(mapVW()/_mp.nw, mapVH()/_mp.nh);
-  _mp.min=s; _mp.max=s*12; _mp.scale=s;
-  _mp.tx=(mapVW()-_mp.nw*s)/2; _mp.ty=(mapVH()-_mp.nh*s)/2;
-  mapApply();
+  const sx=mapVW()/_mp.nw, sy=mapVH()/_mp.nh;
+  const fit=Math.min(sx,sy), cover=Math.max(sx,sy);   // fit=全体が入る / cover=画面を埋める
+  _mp.min=fit; _mp.max=Math.max(fit*14, cover*4); _mp.home=cover; _mp.scale=cover;
+  _mp.tx=(mapVW()-_mp.nw*cover)/2; _mp.ty=(mapVH()-_mp.nh*cover)/2;   // 開いた時は画面を埋める大きさ（縦画面なら横スクロール）
+  mapClamp(); mapApply();
 }
 function mapZoomAt(cx,cy,ns){
   ns=Math.max(_mp.min,Math.min(_mp.max,ns));
@@ -1917,7 +1918,7 @@ function mapInit(){
     _mp.ptrs.delete(e.pointerId); if(_mp.ptrs.size<2)_mp.pinch=null;
     if(_mp.ptrs.size===0 && !_mp.moved){                      // タップ：ダブルで拡大/戻す
       const now=Date.now();
-      if(now-_mp.lastTap<300){ const t=_mp.scale>_mp.min*1.6?_mp.min:_mp.min*3.2; mapZoomAt(e.clientX,e.clientY,t); mapClamp(); mapApply(); _mp.lastTap=0; }
+      if(now-_mp.lastTap<300){ const t=_mp.scale>_mp.home*1.1?_mp.home:_mp.home*2.5; mapZoomAt(e.clientX,e.clientY,t); mapClamp(); mapApply(); _mp.lastTap=0; }
       else _mp.lastTap=now;
     }
   };
