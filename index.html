@@ -189,6 +189,11 @@
   .srow.done .check{background:var(--green);border-color:var(--green);}
   .srow.done .check svg{opacity:1;transform:scale(1);}
   .srow.done .nm{text-decoration:line-through;text-decoration-color:var(--ink-soft);}
+  /* スワイプ操作：ドラッグ中は行を持ち上げて、裏にアクションのヒントを見せる */
+  .srow.swiping,.erow.swiping{position:relative;z-index:5;}
+  .swipehint{position:fixed;z-index:3;display:flex;align-items:center;box-sizing:border-box;border-radius:var(--radius);color:#fff;font-weight:900;font-size:16px;padding:0 18px;pointer-events:none;opacity:0;transition:opacity .08s;}
+  .swipehint.right{justify-content:flex-start;}
+  .swipehint.left{justify-content:flex-end;}
 
   .empty{text-align:center;color:var(--ink-soft);padding:46px 20px;font-weight:500;line-height:1.7;}
   .emptyrec{display:block;width:fit-content;margin:16px auto 2px;border:0;font-family:inherit;font-weight:900;font-size:16px;color:#fff;background:var(--coral);padding:15px 26px;border-radius:14px;cursor:pointer;box-shadow:0 4px 0 #b85733, 0 10px 24px -8px rgba(180,87,51,.5);transition:.1s;}
@@ -1980,23 +1985,60 @@ $('#histSort').addEventListener('change',e=>{histSort=e.target.value;renderHist(
 let _sx=0,_sy=0,_su=null,_btn=null,_lpTimer=null,_lpFired=false,_simg=false;
 function startLongPress(uid){ if(locked)return; _lpFired=false; clearTimeout(_lpTimer); _lpTimer=setTimeout(()=>{ _lpFired=true; const it=catalog.find(i=>i.uid===uid); if(it){ haptic('done'); if(it.isAlert) openAlertEdit(it); else openEdit(it,true); } },1000); }
 function cancelLongPress(){ clearTimeout(_lpTimer); }
-$('#editArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.erow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;const b=e.target.closest('[data-act]');_btn=b?b.dataset.act:null;startLongPress(_su);});
-$('#editArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10||Math.abs(e.clientY-_sy)>10)cancelLongPress();});
-$('#editArea').addEventListener('pointercancel',()=>{_su=null;cancelLongPress();});
-$('#editArea').addEventListener('pointerup',e=>{
-  cancelLongPress();
-  if(_lpFired){_lpFired=false;_su=null;return;}            // 長押しで品目編集を開いた→個数は変えない
-  if(_su==null)return;const uid=_su;_su=null;const btn=_btn;_btn=null;
-  const it=catalog.find(i=>i.uid===uid);if(!it)return;
-  if(btn==='img'){ if(it.image)openImg(it); return; }       // 📷アイコン＝画像を見る（個数は変えない）
-  const dx=e.clientX-_sx,dy=e.clientY-_sy;
-  if(dx<-40&&Math.abs(dx)>Math.abs(dy)){it.qty=Math.max(0,it.qty-1);}            // 左スワイプ -1
-  else if(Math.abs(dx)<12&&Math.abs(dy)<12){                                      // タップ
-    if(btn==='minus')it.qty=Math.max(0,it.qty-1);                                 // −ボタン
-    else it.qty=Math.min(99,it.qty+1);                                            // ＋ボタン / 行タップ
-  } else return;
-  haptic();it.got=0;queueSet(it.uid,{qty:it.qty,got:0,done:false});it.done=false;renderEdit();
-});
+/* ===== スワイプ操作：増減・カゴ入れは誤タップ防止でスワイプに（タップは無効） ===== */
+const SW_THRESH=45, SW_MAX=92;
+let _dg=null, _hintEl2=null, _tapHintAt=0;
+function _swHintEl(){ if(!_hintEl2){ _hintEl2=document.createElement('div'); _hintEl2.className='swipehint'; document.body.appendChild(_hintEl2); } return _hintEl2; }
+function swShowHint(d){
+  const h=_swHintEl(), right=d.dx>=0, r=d.rect;
+  h.textContent = d.kind==='list' ? (right?'🧺 カゴへ ＋1':'↩︎ 1こ もどす') : (right?'＋1':'−1');
+  h.style.background = right?'#2e9d34':'#d0882e';
+  h.style.top=r.top+'px'; h.style.left=r.left+'px'; h.style.width=r.width+'px'; h.style.height=r.height+'px';
+  h.className='swipehint '+(right?'right':'left');
+  h.style.opacity=Math.min(1,Math.abs(d.dx)/SW_THRESH);
+}
+function swEnd(row){ if(row){ row.style.transition='transform .18s'; row.style.transform=''; setTimeout(()=>{ if(row){row.style.transition='';row.classList.remove('swiping');} },190); } if(_hintEl2) _hintEl2.style.opacity='0'; }
+function tapHint(){ const n=Date.now(); if(n-_tapHintAt>4000){ _tapHintAt=n; toast('👉 スワイプで操作してね'); } }
+function swEditQty(it,delta){ const nv=Math.max(0,Math.min(99,it.qty+delta)); if(nv===it.qty){haptic('tap');return;} it.qty=nv;it.got=0;it.done=false;queueSet(it.uid,{qty:it.qty,got:0,done:false});haptic();renderEdit(); }
+function listSwipe(it,dir,row){
+  if(it.isAlert)return;
+  row=row||document.querySelector('.srow[data-uid="'+it.uid+'"]');
+  if(listSeg==='done'){ it.done=false;it.got=0;it.picked_at=null;queueSet(it.uid,{done:false,got:0,picked_at:null});haptic();dropListRow(row);updateListChrome();saveLocal(); if(catalog.filter(i=>i.qty>0&&i.done).length===0)renderList(); return; }
+  const need=Math.max(1,it.qty);
+  if(dir<0){                                                  // 👈 左スワイプ＝1こ戻す
+    if((it.got||0)<=0){haptic('tap');return;}
+    it.got=Math.max(0,(it.got||0)-1); if(it.got===0)it.picked_at=null; it.done=false;
+    queueSet(it.uid,{got:it.got,done:false,picked_at:it.picked_at}); haptic('tap');
+    const rem=Math.max(0,it.qty-it.got);
+    if(row){row.classList.toggle('hot',rem>=2);const dots=row.querySelector('.bigq .dots');if(dots)dots.textContent='●'.repeat(Math.min(rem,15));const num=row.querySelector('.bigq .num');if(num)num.textContent='あと'+rem+'こ';}
+    saveLocal(); return;
+  }
+  const wasZero=(it.got||0)===0; it.got=(it.got||0)+1; if(wasZero)it.picked_at=new Date().toISOString();   // 👉 右スワイプ＝カゴへ
+  let completed=false; if(it.got>=need){it.got=need;it.done=true;completed=true;}
+  queueSet(it.uid,{got:it.got,done:it.done,picked_at:it.picked_at}); haptic(completed?'done':'tap');
+  if(completed){ if(row)row.classList.add('poof'); setTimeout(()=>{dropListRow(row);updateListChrome();saveLocal(); if(catalog.filter(i=>!i.isAlert&&i.qty>0&&!i.done).length===0)renderList(); if(revMode)scrollBottom();},140); }
+  else { const rem=Math.max(0,it.qty-it.got); if(row){row.classList.toggle('hot',rem>=2);const dots=row.querySelector('.bigq .dots');if(dots)dots.textContent='●'.repeat(Math.min(rem,15));const num=row.querySelector('.bigq .num');if(num)num.textContent='あと'+rem+'こ';saveLocal();} else renderList(); }
+}
+function swDown(e,sel,kind){ const row=e.target.closest(sel); if(!row){_dg=null;return;} const b=e.target.closest('[data-act]'); _dg={uid:+row.dataset.uid,row,x0:e.clientX,y0:e.clientY,kind,rect:null,horiz:false,dx:0,btn:b?b.dataset.act:null,img:!!e.target.closest('.srow-photo')}; startLongPress(_dg.uid); }
+function swMove(e){ if(!_dg)return; const dx=e.clientX-_dg.x0,dy=e.clientY-_dg.y0;
+  if(!_dg.horiz){ if(Math.abs(dy)>10&&Math.abs(dy)>=Math.abs(dx)){_dg=null;cancelLongPress();return;}   // 縦＝スクロール
+    if(Math.abs(dx)>8&&Math.abs(dx)>Math.abs(dy)){_dg.horiz=true;cancelLongPress();_dg.rect=_dg.row.getBoundingClientRect();_dg.row.classList.add('swiping');} else return; }
+  _dg.dx=Math.max(-SW_MAX,Math.min(SW_MAX,dx)); _dg.row.style.transition=''; _dg.row.style.transform='translateX('+_dg.dx+'px)'; swShowHint(_dg);
+}
+function swUp(){ cancelLongPress(); if(!_dg)return; const d=_dg;_dg=null; const it=catalog.find(i=>i.uid===d.uid);
+  if(_lpFired){_lpFired=false;swEnd(d.row);return;}                              // 長押し＝編集を開いた
+  if(!d.horiz){ swEnd(d.row); if(!it)return;                                     // 横移動なし＝タップ（操作は無効）
+    if(d.kind==='list'){ if(d.img){if(it.image)openImg(it);return;} if(!it.isAlert)tapHint(); return; }
+    if(d.btn==='img'){if(it.image)openImg(it);return;} if(d.btn==='minus'){swEditQty(it,-1);return;} if(d.btn==='plus'){swEditQty(it,1);return;} tapHint(); return;
+  }
+  const dir=d.dx>=0?1:-1, pass=Math.abs(d.dx)>=SW_THRESH; swEnd(d.row); if(!pass||!it)return;
+  if(d.kind==='list')listSwipe(it,dir,d.row); else swEditQty(it,dir);
+}
+function swCancel(){ if(_dg){swEnd(_dg.row);_dg=null;} cancelLongPress(); }
+$('#editArea').addEventListener('pointerdown',e=>swDown(e,'.erow','edit'));
+$('#editArea').addEventListener('pointermove',swMove);
+$('#editArea').addEventListener('pointerup',swUp);
+$('#editArea').addEventListener('pointercancel',swCancel);
 let _isx=0,_isy=0,_isu=null,_iSwiped=false;
 $('#itemArea').addEventListener('pointerdown',e=>{ if(e.target.closest('.drag')){_isu=null;return;} const row=e.target.closest('.irow'); if(!row){_isu=null;return;} _isu=+row.dataset.uid;_isx=e.clientX;_isy=e.clientY; });
 $('#itemArea').addEventListener('pointercancel',()=>{_isu=null;});
@@ -2016,50 +2058,10 @@ $('#itemArea').addEventListener('click',e=>{
   }
   openEdit(it);
 });
-$('#listArea').addEventListener('pointerdown',e=>{const row=e.target.closest('.srow');if(!row){_su=null;return;}_su=+row.dataset.uid;_sx=e.clientX;_sy=e.clientY;_simg=!!e.target.closest('.srow-photo');startLongPress(_su);});
-$('#listArea').addEventListener('pointermove',e=>{if(Math.abs(e.clientX-_sx)>10||Math.abs(e.clientY-_sy)>10)cancelLongPress();},{passive:true});
-$('#listArea').addEventListener('pointercancel',()=>{_su=null;cancelLongPress();});
-$('#listArea').addEventListener('pointerup',e=>{
-  cancelLongPress();
-  if(_lpFired){_lpFired=false;_su=null;return;}              // 長押しで品目編集を開いた→カゴには入れない
-  if(_su==null)return;const uid=_su;_su=null;const sImg=_simg;_simg=false;
-  const dx=e.clientX-_sx,dy=e.clientY-_sy;
-  if(dx>50&&Math.abs(dx)>Math.abs(dy)){ const sit=catalog.find(i=>i.uid===uid); if(sit&&sit.image)openImg(sit); return; }   // 右スワイプ＝画像
-  if(Math.abs(dx)>14||Math.abs(dy)>14)return;                // スクロール/スワイプはカゴ操作にしない
-  const it=catalog.find(i=>i.uid===uid);if(!it)return;
-  if(sImg){ if(it.image)openImg(it); return; }                // 📷バッジ＝画像を見る（カゴは触らない）
-  const row=document.querySelector('.srow[data-uid="'+uid+'"]');
-  if(listSeg==='done'){                                       // 終了側タップで未終了に戻す
-    it.done=false;it.got=0;it.picked_at=null;queueSet(it.uid,{done:false,got:0,picked_at:null});haptic();
-    dropListRow(row);updateListChrome();saveLocal();
-    if(catalog.filter(i=>i.qty>0&&i.done).length===0)renderList();   // 終了が空になったら空表示へ
-    return;
-  }
-  const need=Math.max(1,it.qty);
-  const wasZero=(it.got||0)===0;
-  it.got=(it.got||0)+1;
-  if(wasZero) it.picked_at=new Date().toISOString(); // 最初に手に取った時刻＝ピック順
-  let completed=false;
-  if(it.got>=need){ it.got=need;it.done=true;completed=true; }
-  queueSet(it.uid,{got:it.got,done:it.done,picked_at:it.picked_at});
-  haptic(completed?'done':'tap');
-  if(completed){
-    if(row)row.classList.add('poof');
-    setTimeout(()=>{
-      dropListRow(row);updateListChrome();saveLocal();
-      if(catalog.filter(i=>!i.isAlert&&i.qty>0&&!i.done).length===0)renderList(); // 買うものが無くなったら空表示へ（アラートも消える）
-      if(revMode)scrollBottom();
-    },140);
-  } else {
-    const rem=Math.max(0,it.qty-it.got);          // 未完了：その行だけ書き換え（全再描画しない＝アニメが途切れない）
-    if(row){
-      row.classList.toggle('hot',rem>=2);
-      const dots=row.querySelector('.bigq .dots'); if(dots)dots.textContent='●'.repeat(Math.min(rem,15));
-      const num=row.querySelector('.bigq .num'); if(num)num.textContent='あと'+rem+'こ';
-      saveLocal();
-    } else { renderList(); }
-  }
-});
+$('#listArea').addEventListener('pointerdown',e=>swDown(e,'.srow','list'));
+$('#listArea').addEventListener('pointermove',swMove);
+$('#listArea').addEventListener('pointerup',swUp);
+$('#listArea').addEventListener('pointercancel',swCancel);
 
 $('#checkoutBtn').addEventListener('click',tryCheckout);
 $('#lockBtn').addEventListener('click',()=>{ if(!locked) slideConfirm({label:'スライドでロック',hint:'ロック →',knob:'🔒',onComplete:()=>setLock(true)}); });
