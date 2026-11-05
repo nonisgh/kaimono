@@ -302,6 +302,12 @@
   .imgpop-cap{margin-top:14px;text-align:center;color:#fff;}
   #imgPopName{display:block;font-size:20px;font-weight:800;}
   #imgPopProd{display:block;font-size:14px;font-weight:600;opacity:.85;margin-top:3px;}
+  /* 売り場マップ（ズーム・ドラッグできる全画面ビューア） */
+  .mappop{position:fixed;inset:0;z-index:100;background:rgba(22,20,15,.94);display:none;overflow:hidden;touch-action:none;overscroll-behavior:none;}
+  .mappop.open{display:block;}
+  #mapImg{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;user-select:none;-webkit-user-drag:none;max-width:none;}
+  .mappop-close{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);right:14px;z-index:101;width:48px;height:48px;border-radius:14px;border:0;background:rgba(255,255,255,.94);color:#222;font-size:19px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 6px 20px -6px rgba(0,0,0,.5);}
+  .mappop-hint{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);left:0;right:0;text-align:center;color:rgba(255,255,255,.82);font-size:13px;font-weight:700;pointer-events:none;transition:opacity .4s;}
 
   /* シート内の画像エリア */
   .imgedit{margin:6px 0 4px;}
@@ -405,6 +411,7 @@
       <div><h1>おかいものメモ（β版）</h1><div class="sub">売り場を回る順に</div></div>
       <div class="headright">
         <div class="syncdot" id="syncDot"><span class="ic">☁</span></div>
+        <button class="gear" id="mapBtn" title="売り場マップ" style="display:none;">🗺️</button>
         <button class="gear" id="storeBtn" title="店舗・ログイン">🏪</button>
         <button class="gear" id="gearBtn" title="売り場の管理">⚙</button>
       </div>
@@ -688,6 +695,12 @@
     <img id="imgPopImg" alt="">
     <div class="imgpop-cap"><span id="imgPopName"></span><span id="imgPopProd"></span></div>
   </div>
+</div>
+
+<div id="mapPop" class="mappop">
+  <img id="mapImg" alt="売り場マップ" draggable="false">
+  <button class="mappop-close" id="mapClose" title="とじる">✕</button>
+  <div class="mappop-hint" id="mapHint">ピンチ / ダブルタップで拡大・ドラッグで移動</div>
 </div>
 
 <script>
@@ -1154,7 +1167,7 @@ async function accSetProject(id,name){
   PROJECT_ID=id; localStorage.setItem('kaimono.currentProjectId',id);
   await accLoadCategories();
   if(SB.ready()){ try{ await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); }catch(e){ console.error(e); } }
-  renderActive(); renderAcct();
+  renderActive(); renderAcct(); refreshMapBtn();
   toast('「'+(name||'店舗')+'」に切り替えました');
 }
 /* ===== 共有メンバー管理（オーナーのみ）。iOSと同じ project_members 操作 ===== */
@@ -1280,6 +1293,7 @@ async function init(){
   applyReverse(); applyRevPad(); applyBadgeAlpha(); applyFindHide(); applyJumpFrac(); applyFlash(); applyLock();   // 保存済みのモード(タップ/通常)・表示位置・バッジ濃さ・ロックを反映
   loadLocal(); renderActive(); preloadImages();      // まずローカルで即表示＋写真先読み
   accInit();                                          // 店舗ボタン・ログインUIの配線
+  mapInit(); refreshMapBtn();                          // 売り場マップ（ビューア配線＋この店舗にマップがあればボタン表示）
   if(SB.ready()){
     try{ await seedIfEmpty(); await loadZones(); await loadItems(); await loadHistory(); await loadBookmarks(); await loadLock(); await accLoadCategories(); await accLoadProjects(); }
     catch(e){ console.error(e); toast('同期エラー（コンソール参照）'); }
@@ -1840,6 +1854,77 @@ function openImg(it){ if(!it||!it.image)return;
   $('#imgPop').classList.add('open');
 }
 function closeImg(){ $('#imgPop').classList.remove('open'); }
+
+/* ===== 売り場マップ（店舗ごと・ズーム＆ドラッグできる全画面ビューア） ===== */
+function mapUrlFor(pid){ return SB.url+'/storage/v1/object/public/item-images/maps/'+pid+'.png'; }
+function refreshMapBtn(){
+  const btn=$('#mapBtn'); if(!btn) return;
+  const pid=PROJECT_ID; btn.style.display='none';
+  const probe=new Image();                           // 画像で存在チェック＝CORS無し＆同時に先読み
+  probe.onload=()=>{ if(PROJECT_ID===pid) btn.style.display=''; };
+  probe.onerror=()=>{ if(PROJECT_ID===pid) btn.style.display='none'; };
+  probe.src=mapUrlFor(pid);
+}
+let _mp={scale:1,min:1,max:8,tx:0,ty:0,nw:0,nh:0,ptrs:new Map(),pinch:null,moved:false,lastTap:0};
+function mapVW(){ return window.innerWidth; }
+function mapVH(){ return window.innerHeight; }
+function mapApply(){ $('#mapImg').style.transform='translate('+_mp.tx+'px,'+_mp.ty+'px) scale('+_mp.scale+')'; }
+function mapClamp(){
+  _mp.scale=Math.max(_mp.min,Math.min(_mp.max,_mp.scale));
+  const w=_mp.nw*_mp.scale, h=_mp.nh*_mp.scale;
+  _mp.tx = (w<=mapVW()) ? (mapVW()-w)/2 : Math.min(0,Math.max(mapVW()-w,_mp.tx));
+  _mp.ty = (h<=mapVH()) ? (mapVH()-h)/2 : Math.min(0,Math.max(mapVH()-h,_mp.ty));
+}
+function mapFit(){
+  if(!_mp.nw||!_mp.nh) return;
+  const s=Math.min(mapVW()/_mp.nw, mapVH()/_mp.nh);
+  _mp.min=s; _mp.max=s*12; _mp.scale=s;
+  _mp.tx=(mapVW()-_mp.nw*s)/2; _mp.ty=(mapVH()-_mp.nh*s)/2;
+  mapApply();
+}
+function mapZoomAt(cx,cy,ns){
+  ns=Math.max(_mp.min,Math.min(_mp.max,ns));
+  const ix=(cx-_mp.tx)/_mp.scale, iy=(cy-_mp.ty)/_mp.scale;
+  _mp.scale=ns; _mp.tx=cx-ix*ns; _mp.ty=cy-iy*ns;
+}
+function openMap(){
+  const pop=$('#mapPop'), img=$('#mapImg'), url=mapUrlFor(PROJECT_ID);
+  const ready=()=>{ _mp.nw=img.naturalWidth; _mp.nh=img.naturalHeight; mapFit(); };
+  img.onload=ready;
+  if(img.getAttribute('src')!==url){ img.src=url; } else if(img.complete && img.naturalWidth){ ready(); }
+  pop.classList.add('open');
+  const hint=$('#mapHint'); if(hint){ hint.style.opacity='1'; clearTimeout(window._mapHintT); window._mapHintT=setTimeout(()=>{hint.style.opacity='0';},2600); }
+}
+function closeMap(){ $('#mapPop').classList.remove('open'); }
+function mapInit(){
+  const btn=$('#mapBtn'); if(btn) btn.addEventListener('click',openMap);
+  const cl=$('#mapClose'); if(cl) cl.addEventListener('click',closeMap);
+  const pop=$('#mapPop'); if(!pop) return;
+  pop.addEventListener('pointerdown',e=>{ if(e.target.closest('#mapClose'))return; _mp.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY}); _mp.moved=false; try{pop.setPointerCapture(e.pointerId);}catch(_){} });
+  pop.addEventListener('pointermove',e=>{
+    if(!_mp.ptrs.has(e.pointerId))return;
+    const prev=_mp.ptrs.get(e.pointerId); _mp.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    const pts=[..._mp.ptrs.values()];
+    if(pts.length===1){ _mp.tx+=e.clientX-prev.x; _mp.ty+=e.clientY-prev.y; if(Math.abs(e.clientX-prev.x)+Math.abs(e.clientY-prev.y)>2)_mp.moved=true; mapClamp(); mapApply(); }
+    else if(pts.length>=2){
+      const a=pts[0], b=pts[1], dist=Math.hypot(a.x-b.x,a.y-b.y), mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+      if(_mp.pinch){ mapZoomAt(mid.x,mid.y,_mp.scale*(dist/_mp.pinch.dist)); _mp.tx+=mid.x-_mp.pinch.mid.x; _mp.ty+=mid.y-_mp.pinch.mid.y; mapClamp(); mapApply(); }
+      _mp.pinch={dist,mid}; _mp.moved=true;
+    }
+  });
+  const end=e=>{
+    if(!_mp.ptrs.has(e.pointerId))return;
+    _mp.ptrs.delete(e.pointerId); if(_mp.ptrs.size<2)_mp.pinch=null;
+    if(_mp.ptrs.size===0 && !_mp.moved){                      // タップ：ダブルで拡大/戻す
+      const now=Date.now();
+      if(now-_mp.lastTap<300){ const t=_mp.scale>_mp.min*1.6?_mp.min:_mp.min*3.2; mapZoomAt(e.clientX,e.clientY,t); mapClamp(); mapApply(); _mp.lastTap=0; }
+      else _mp.lastTap=now;
+    }
+  };
+  pop.addEventListener('pointerup',end);
+  pop.addEventListener('pointercancel',end);
+  pop.addEventListener('wheel',e=>{ e.preventDefault(); mapZoomAt(e.clientX,e.clientY,_mp.scale*(e.deltaY<0?1.15:1/1.15)); mapClamp(); mapApply(); },{passive:false});
+}
 $('#imgPop').addEventListener('click',closeImg);
 let hapticOn=(localStorage.getItem('kaimono.haptic')??'1')==='1';
 let badgeAlpha=parseInt(localStorage.getItem('kaimono.badgealpha')??'8',10);
