@@ -1146,7 +1146,7 @@ async function accLogin(){
   await accLoadProjects(); renderAcct(); toast('ログインしました');
 }
 function accSignOut(){
-  ACC.handle=''; ACC.projects=[]; localStorage.removeItem('kaimono.handle');
+  ACC.handle=''; ACC.projects=[]; ACC.shareProject=null; ACC.members=[]; localStorage.removeItem('kaimono.handle');
   renderAcct(); toast('ログアウトしました');
 }
 async function accSetProject(id,name){
@@ -1157,43 +1157,121 @@ async function accSetProject(id,name){
   renderActive(); renderAcct();
   toast('「'+(name||'店舗')+'」に切り替えました');
 }
+/* ===== 共有メンバー管理（オーナーのみ）。iOSと同じ project_members 操作 ===== */
+const ASSIGN_ROLES=[['edit','編集'],['view','閲覧'],['list','リストのみ']];
+async function accMembers(pid){
+  if(!SB.ready()) return [];
+  const r=await SB.client.from('project_members').select('user_id,role,created_at').eq('project_id',pid).order('created_at');
+  if(r.error){ console.error(r.error); return []; }
+  return r.data||[];
+}
+async function accAddMember(pid,handle,role){
+  const h=accNorm(handle); if(!h){ toast('IDを入れてね'); return false; }
+  const r=await SB.client.from('project_members').upsert({project_id:pid,user_id:h,role:role},{onConflict:'project_id,user_id'});
+  if(r.error){ console.error(r.error); toast('追加に失敗しました'); return false; }
+  toast('✓ @'+h+' を『'+roleLabel(role)+'』で共有しました'); return true;
+}
+async function accSetRole(pid,uid,role){
+  const r=await SB.client.from('project_members').update({role:role}).eq('project_id',pid).eq('user_id',uid);
+  if(r.error){ console.error(r.error); toast('変更に失敗しました'); return false; }
+  toast('@'+uid+' を『'+roleLabel(role)+'』に変更'); return true;
+}
+async function accRemoveMember(pid,uid){
+  const r=await SB.client.from('project_members').delete().eq('project_id',pid).eq('user_id',uid);
+  if(r.error){ console.error(r.error); toast('削除に失敗しました'); return false; }
+  toast('@'+uid+' を共有から外しました'); return true;
+}
+async function accOpenShare(pid,name){ ACC.shareProject={id:pid,name:name}; ACC.members=await accMembers(pid); renderAcct(); }
+function accCloseShare(){ ACC.shareProject=null; ACC.members=[]; renderAcct(); }
+async function accReloadMembers(){ if(ACC.shareProject){ ACC.members=await accMembers(ACC.shareProject.id); renderAcct(); } }
+function sharePanelHTML(){
+  const sp=ACC.shareProject;
+  const rows=(ACC.members||[]).map(m=>{
+    if(m.role==='owner'){
+      return '<div style="display:flex;align-items:center;gap:9px;padding:12px 13px;margin:6px 0;border:1.5px solid var(--line);border-radius:13px;background:var(--paper2);">'
+        +'<b style="flex:1;font-size:16px;">@'+esc(m.user_id)+'</b>'
+        +'<span style="font-size:11.5px;font-weight:800;color:#fff;background:var(--green);border-radius:999px;padding:3px 9px;">オーナー</span></div>';
+    }
+    const opts=ASSIGN_ROLES.map(([v,l])=>'<option value="'+v+'"'+(m.role===v?' selected':'')+'>'+l+'</option>').join('');
+    return '<div style="display:flex;align-items:center;gap:8px;padding:10px 13px;margin:6px 0;border:1.5px solid var(--line);border-radius:13px;background:var(--card);">'
+      +'<b style="flex:1;font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;">@'+esc(m.user_id)+'</b>'
+      +'<select class="memberRole" data-uid="'+esc(m.user_id)+'" style="font-family:inherit;font-size:15px;padding:6px 8px;border-radius:9px;border:1.5px solid var(--line);background:var(--card);">'+opts+'</select>'
+      +'<button class="memberRemove" data-uid="'+esc(m.user_id)+'" title="共有から外す" style="font-family:inherit;font-size:16px;width:38px;height:38px;border:1.5px solid #e3b7bf;border-radius:10px;background:#fbeef0;color:#b23;cursor:pointer;">✕</button></div>';
+  }).join('');
+  const addOpts=ASSIGN_ROLES.map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('');
+  return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">'
+      +'<button class="b-cancel" id="acctShareBack" style="padding:8px 13px;font-size:14px;">← 戻る</button>'
+      +'<b style="flex:1;font-size:17px;min-width:0;overflow:hidden;text-overflow:ellipsis;">🏪 '+esc(sp.name)+'</b></div>'
+    +'<div style="font-size:13px;color:var(--ink-soft);margin-bottom:2px;">共有メンバー（'+ (ACC.members||[]).length +'人）</div>'
+    +(rows||'<div style="font-size:14px;color:var(--ink-soft);padding:8px;">まだメンバーがいません</div>')
+    +'<div style="margin-top:14px;padding:13px;border:1.5px dashed var(--line);border-radius:13px;background:var(--paper2);">'
+      +'<div style="font-size:14px;font-weight:800;margin-bottom:8px;">➕ 共有相手を追加</div>'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+        +'<input id="shareHandle" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="相手のID（例: seiko）" style="flex:1;min-width:120px;font-size:17px;font-family:inherit;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;">'
+        +'<select id="shareRole" style="font-family:inherit;font-size:16px;padding:9px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--card);">'+addOpts+'</select>'
+      +'</div>'
+      +'<button class="b-save" id="acctAddMemberBtn" style="width:100%;margin-top:9px;font-size:16px;">追加して共有</button>'
+      +'<div style="font-size:12.5px;color:var(--ink-soft);margin-top:8px;line-height:1.6;">相手が同じIDでログインすると、この店舗が相手の一覧に出るぬお。役割は後からいつでも変えられるぬお。</div>'
+    +'</div>';
+}
 function renderAcct(){
   const b=$('#acctBody'); if(!b) return;
+  if(ACC.handle && ACC.shareProject){ b.innerHTML=sharePanelHTML(); return; }   // 共有メンバー管理（オーナー）
   if(!ACC.handle){
     b.innerHTML='<div class="field"><label style="font-size:14px;">ID（ハンドル名）</label>'
       +'<input id="acctHandle" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="例: norihisa" style="font-size:19px;"></div>'
       +'<div class="field"><label style="font-size:14px;">パスワード（保護された店舗のみ）</label>'
       +'<input id="acctPw" type="password" autocapitalize="off" autocorrect="off" placeholder="未設定なら空のまま" style="font-size:19px;"></div>'
       +'<div class="sheetbtns" style="margin-top:6px;"><button class="b-save" id="acctLoginBtn" style="font-size:17px;">ログイン</button></div>'
-      +'<div style="font-size:13.5px;color:var(--ink-soft);margin-top:10px;line-height:1.6;">同じIDで再ログインできます。共有された店舗が一覧に出ます。（店舗の作成・共有・パスワード設定はiOSアプリで）</div>';
+      +'<div style="font-size:13.5px;color:var(--ink-soft);margin-top:10px;line-height:1.6;">同じIDで再ログインできます。共有された店舗が一覧に出ます。オーナーの店舗は👥から共有メンバーを管理できます。（店舗の作成・パスワード設定はiOSアプリで）</div>';
   } else {
     const rows=ACC.projects.map(p=>{
       const cur=p.id===PROJECT_ID;
-      return '<button class="acctstore" data-id="'+esc(p.id)+'" data-name="'+esc(p.name)+'" '
-        +'style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;font-family:inherit;padding:13px 13px;margin:6px 0;border:1.5px solid var(--line);border-radius:13px;background:'+(cur?'var(--paper2)':'var(--card)')+';cursor:pointer;">'
-        +'<span style="font-size:18px;">'+(cur?'✅':'🏪')+'</span>'
-        +'<b style="flex:1;font-size:17px;">'+esc(p.name)+'</b>'
-        +(cur?'<span style="font-size:11px;font-weight:800;color:#fff;background:var(--green);border-radius:999px;padding:3px 8px;">表示中</span>':'')
-        +'<span style="font-size:11.5px;font-weight:800;color:var(--green-d);">'+esc(roleLabel(p.role))+'</span>'
-        +'</button>';
+      const owner=p.role==='owner';
+      return '<div style="display:flex;align-items:center;gap:7px;margin:6px 0;">'
+        +'<button class="acctstore" data-id="'+esc(p.id)+'" data-name="'+esc(p.name)+'" '
+          +'style="display:flex;align-items:center;gap:9px;flex:1;min-width:0;text-align:left;font-family:inherit;padding:13px 13px;border:1.5px solid var(--line);border-radius:13px;background:'+(cur?'var(--paper2)':'var(--card)')+';cursor:pointer;">'
+          +'<span style="font-size:18px;">'+(cur?'✅':'🏪')+'</span>'
+          +'<b style="flex:1;font-size:17px;min-width:0;overflow:hidden;text-overflow:ellipsis;">'+esc(p.name)+'</b>'
+          +(cur?'<span style="font-size:11px;font-weight:800;color:#fff;background:var(--green);border-radius:999px;padding:3px 8px;">表示中</span>':'')
+          +'<span style="font-size:11.5px;font-weight:800;color:var(--green-d);">'+esc(roleLabel(p.role))+'</span>'
+        +'</button>'
+        +(owner?'<button class="acctShareBtn" data-id="'+esc(p.id)+'" data-name="'+esc(p.name)+'" title="共有を管理" style="font-family:inherit;font-size:18px;width:46px;height:46px;flex:none;border:1.5px solid var(--line);border-radius:13px;background:var(--card);cursor:pointer;">👥</button>':'')
+        +'</div>';
     }).join('');
     b.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><b style="font-size:17px;">@'+esc(ACC.handle)+'</b>'
       +'<span style="flex:1;"></span><button class="b-cancel" id="acctLogoutBtn" style="padding:8px 14px;font-size:14px;">ログアウト</button></div>'
       +'<div style="font-size:13px;color:var(--ink-soft);margin-bottom:2px;">店舗（タップで切替）</div>'
-      +(rows||'<div style="font-size:14px;color:var(--ink-soft);padding:8px;">参加している店舗がありません（iOSアプリで作成・共有できます）</div>');
+      +(rows||'<div style="font-size:14px;color:var(--ink-soft);padding:8px;">参加している店舗がありません（iOSアプリで作成できます）</div>');
   }
 }
-function openAcct(){ renderAcct(); $('#acctBg').classList.add('open'); $('#acctSheet').classList.add('open'); }
+function openAcct(){ ACC.shareProject=null; ACC.members=[]; renderAcct(); $('#acctBg').classList.add('open'); $('#acctSheet').classList.add('open'); }
 function closeAcct(){ $('#acctBg').classList.remove('open'); $('#acctSheet').classList.remove('open'); }
 function accInit(){
   const sb=$('#storeBtn'); if(sb) sb.addEventListener('click',openAcct);
   const ac=$('#acctClose'); if(ac) ac.addEventListener('click',closeAcct);
   const ab=$('#acctBg'); if(ab) ab.addEventListener('click',closeAcct);
-  const sh=$('#acctSheet'); if(sh) sh.addEventListener('click',async e=>{
-    if(e.target.closest('#acctLoginBtn')){ await accLogin(); return; }
-    if(e.target.closest('#acctLogoutBtn')){ accSignOut(); return; }
-    const st=e.target.closest('.acctstore'); if(st){ await accSetProject(st.dataset.id, st.dataset.name); }
-  });
+  const sh=$('#acctSheet'); if(sh){
+    sh.addEventListener('click',async e=>{
+      if(e.target.closest('#acctLoginBtn')){ await accLogin(); return; }
+      if(e.target.closest('#acctLogoutBtn')){ accSignOut(); return; }
+      const shb=e.target.closest('.acctShareBtn'); if(shb){ await accOpenShare(shb.dataset.id, shb.dataset.name); return; }
+      if(e.target.closest('#acctShareBack')){ accCloseShare(); return; }
+      if(e.target.closest('#acctAddMemberBtn')){
+        if(!ACC.shareProject) return;
+        const hi=$('#shareHandle'), ro=$('#shareRole');
+        if(await accAddMember(ACC.shareProject.id, hi?hi.value:'', ro?ro.value:'edit')){ if(hi)hi.value=''; await accReloadMembers(); }
+        return;
+      }
+      const rm=e.target.closest('.memberRemove');
+      if(rm && ACC.shareProject){ if(await accRemoveMember(ACC.shareProject.id, rm.dataset.uid)) await accReloadMembers(); return; }
+      const st=e.target.closest('.acctstore'); if(st){ await accSetProject(st.dataset.id, st.dataset.name); }
+    });
+    sh.addEventListener('change',async e=>{
+      const sel=e.target.closest('.memberRole');
+      if(sel && ACC.shareProject){ if(await accSetRole(ACC.shareProject.id, sel.dataset.uid, sel.value)) await accReloadMembers(); }
+    });
+  }
 }
 
 async function init(){
