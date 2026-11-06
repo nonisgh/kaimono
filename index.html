@@ -1877,8 +1877,8 @@ function mapClamp(){
 }
 /* ズーム倍率・位置の記憶（店舗ごと・この端末だけ。とりあえずDBには保存しない） */
 function mapViewKey(){ return 'kaimono.mapView.'+PROJECT_ID; }
-function mapSaveView(){ if(!_mp.nw) return; try{ localStorage.setItem(mapViewKey(), JSON.stringify({s:_mp.scale,x:_mp.tx,y:_mp.ty})); }catch(e){} }
-function mapLoadView(){ try{ const v=JSON.parse(localStorage.getItem(mapViewKey())||'null'); return (v&&v.s>0)?v:null; }catch(e){ return null; } }
+function mapSaveView(){ if(!_mp.nw) return; try{ localStorage.setItem(mapViewKey(), JSON.stringify({s:_mp.scale,x:_mp.tx,y:_mp.ty,w:_mp.nw})); }catch(e){} }
+function mapLoadView(){ try{ const v=JSON.parse(localStorage.getItem(mapViewKey())||'null'); return (v&&v.s>0&&v.w===_mp.nw)?v:null; }catch(e){ return null; } }   // 画像サイズが変わったら無視＝coverで開く
 function mapFit(){
   if(!_mp.nw||!_mp.nh) return;
   const sx=mapVW()/_mp.nw, sy=mapVH()/_mp.nh;
