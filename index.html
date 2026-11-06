@@ -307,7 +307,9 @@
   .mappop.open{display:block;}
   #mapImg{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;user-select:none;-webkit-user-drag:none;max-width:none;}
   .mappop-close{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);right:14px;z-index:101;width:48px;height:48px;border-radius:14px;border:0;background:rgba(255,255,255,.94);color:#222;font-size:19px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 6px 20px -6px rgba(0,0,0,.5);}
-  .mappop-hint{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);left:0;right:0;text-align:center;color:rgba(255,255,255,.82);font-size:13px;font-weight:700;pointer-events:none;transition:opacity .4s;}
+  .mappop-hint{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);left:0;right:0;text-align:center;color:rgba(255,255,255,.82);font-size:13px;font-weight:700;pointer-events:none;transition:opacity .4s;}
+  /* 片手スマホ用：下にも「とじる」（親指で届く） */
+  .mappop-close-b{position:fixed;z-index:101;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);left:50%;transform:translateX(-50%);border:0;background:rgba(255,255,255,.95);color:#222;font-family:inherit;font-size:16px;font-weight:900;padding:13px 30px;border-radius:999px;cursor:pointer;box-shadow:0 6px 20px -6px rgba(0,0,0,.6);}
 
   /* シート内の画像エリア */
   .imgedit{margin:6px 0 4px;}
@@ -701,6 +703,7 @@
   <img id="mapImg" alt="売り場マップ" draggable="false">
   <button class="mappop-close" id="mapClose" title="とじる">✕</button>
   <div class="mappop-hint" id="mapHint">ピンチ / ダブルタップで拡大・ドラッグで移動</div>
+  <button class="mappop-close-b" id="mapCloseBottom">✕ とじる</button>
 </div>
 
 <script>
@@ -1906,8 +1909,9 @@ function closeMap(){ mapSaveView(); $('#mapPop').classList.remove('open'); }
 function mapInit(){
   const btn=$('#mapBtn'); if(btn) btn.addEventListener('click',openMap);
   const cl=$('#mapClose'); if(cl) cl.addEventListener('click',closeMap);
+  const clb=$('#mapCloseBottom'); if(clb) clb.addEventListener('click',closeMap);
   const pop=$('#mapPop'); if(!pop) return;
-  pop.addEventListener('pointerdown',e=>{ if(e.target.closest('#mapClose'))return; _mp.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY}); _mp.moved=false; try{pop.setPointerCapture(e.pointerId);}catch(_){} });
+  pop.addEventListener('pointerdown',e=>{ if(e.target.closest('#mapClose')||e.target.closest('#mapCloseBottom'))return; _mp.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY}); _mp.moved=false; try{pop.setPointerCapture(e.pointerId);}catch(_){} });
   pop.addEventListener('pointermove',e=>{
     if(!_mp.ptrs.has(e.pointerId))return;
     const prev=_mp.ptrs.get(e.pointerId); _mp.ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
