@@ -1308,7 +1308,9 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const yen=n=>'¥'+(n||0).toLocaleString('ja-JP');
 const TAXR=1.1; const taxIncl=p=>Math.round((p||0)*TAXR);
-function bdg(code,cls){const z=zoneOf(code),f=zoneColorOf(z);return `<span class="${cls||'badge'}" style="background:${f.bg};color:${f.ink}">${esc(code)}</span>`;}
+/* バッジ表示：記号コードの代わりに「売り場名＋丸数字」。例 A-②→果実②。丸数字が無ければコードのまま。 */
+function zoneBadge(z){ const c=(z&&z.code)||''; const last=c.slice(-1); const cp=last?last.codePointAt(0):0; return (cp>=0x2460&&cp<=0x2473)?((z.label||'')+last):c; }
+function bdg(code,cls){const z=zoneOf(code),f=zoneColorOf(z);return `<span class="${cls||'badge'}" style="background:${f.bg};color:${f.ink}">${esc(zoneBadge(z))}</span>`;}
 
 const SORTLABELS=[['zone','売り場順'],['id','番号順'],['type','種別順'],['price','単価順'],['name','名前順']];
 function fillSort(sel,val){sel.innerHTML=SORTLABELS.map(([v,l])=>`<option value="${v}" ${v===val?'selected':''}>${l}</option>`).join('');}
@@ -1331,7 +1333,7 @@ function groupItems(items,key){
 }
 function groupHeader(g,stat){
   const bag=(stat&&stat.N>0)?`<span class="grpbag">🛍 ${stat.n} / ${stat.N} 枚</span>`:'';
-  if(g.kind==='zone'){const z=zoneOf(g.code);return `<div class="grphead">${bdg(g.code)}<span class="nm">${esc(z.label)}</span><span class="ln"></span>${bag}</div>`;}
+  if(g.kind==='zone'){return `<div class="grphead">${bdg(g.code)}<span class="ln"></span>${bag}</div>`;}   // バッジ＝売り場名＋丸数字なのでラベル重複を省く
   if(g.kind==='type')return `<div class="grphead"><span class="nm" style="font-size:13px;color:var(--green-d)">${esc(g.name)}</span><span class="ln"></span>${bag}</div>`;
   return '';
 }
@@ -1597,7 +1599,7 @@ function renderJump(barSel,present,sortMode,ft){
   if(mini)mini.querySelectorAll('[data-jn],.minicur').forEach(x=>x.style.display=nav?'':'none');
   if(!nav){ bar.innerHTML=''; bar.style.display='none'; return; }
   bar.style.display='flex';
-  bar.innerHTML=ZONES.map(z=>{const c=zoneColorOf(z);const on=present.has(z.code);return `<button class="jchip ${on?'':'off'}" data-jz="${esc(z.code)}" style="background:${c.bg};color:${c.ink};border:1.5px solid ${c.ink}">${esc(z.code)}</button>`;}).join('');
+  bar.innerHTML=ZONES.map(z=>{const c=zoneColorOf(z);const on=present.has(z.code);return `<button class="jchip ${on?'':'off'}" data-jz="${esc(z.code)}" style="background:${c.bg};color:${c.ink};border:1.5px solid ${c.ink}">${esc(zoneBadge(z))}</button>`;}).join('');
   if(_selZone){const sc=bar.querySelector('.jchip[data-jz="'+CSS.escape(_selZone)+'"]'); if(sc)sc.classList.add('sel');}
   requestAnimationFrame(updateJumpCur);
 }
@@ -1672,7 +1674,7 @@ function updateMiniCur(code){                                 // たたんだ状
   const mc=find.querySelector('.minicur'); if(!mc)return;
   if(!code){ mc.textContent='—'; mc.style.background='var(--card)'; mc.style.color='var(--ink)'; mc.style.borderColor='var(--line)'; return; }
   const z=zoneOf(code),f=zoneColorOf(z);
-  mc.textContent=z.code;
+  mc.textContent=zoneBadge(z);
   mc.style.background=f.bg; mc.style.color=f.ink; mc.style.borderColor=f.ink;
 }
 function curArea(){ return activeTab==='edit'?{area:'#editArea',bar:'#editJump',sort:editSort,ft:editFilter}:activeTab==='item'?{area:'#itemArea',bar:'#itemJump',sort:itemSort,ft:itemFilter}:null; }
