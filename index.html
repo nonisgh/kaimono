@@ -1875,12 +1875,18 @@ function mapClamp(){
   _mp.tx = (w<=mapVW()) ? (mapVW()-w)/2 : Math.min(0,Math.max(mapVW()-w,_mp.tx));
   _mp.ty = (h<=mapVH()) ? (mapVH()-h)/2 : Math.min(0,Math.max(mapVH()-h,_mp.ty));
 }
+/* ズーム倍率・位置の記憶（店舗ごと・この端末だけ。とりあえずDBには保存しない） */
+function mapViewKey(){ return 'kaimono.mapView.'+PROJECT_ID; }
+function mapSaveView(){ if(!_mp.nw) return; try{ localStorage.setItem(mapViewKey(), JSON.stringify({s:_mp.scale,x:_mp.tx,y:_mp.ty})); }catch(e){} }
+function mapLoadView(){ try{ const v=JSON.parse(localStorage.getItem(mapViewKey())||'null'); return (v&&v.s>0)?v:null; }catch(e){ return null; } }
 function mapFit(){
   if(!_mp.nw||!_mp.nh) return;
   const sx=mapVW()/_mp.nw, sy=mapVH()/_mp.nh;
   const fit=Math.min(sx,sy), cover=Math.max(sx,sy);   // fit=全体が入る / cover=画面を埋める
-  _mp.min=fit; _mp.max=Math.max(fit*14, cover*4); _mp.home=cover; _mp.scale=cover;
-  _mp.tx=(mapVW()-_mp.nw*cover)/2; _mp.ty=(mapVH()-_mp.nh*cover)/2;   // 開いた時は画面を埋める大きさ（縦画面なら横スクロール）
+  _mp.min=fit; _mp.max=Math.max(fit*14, cover*4); _mp.home=cover;
+  const saved=mapLoadView();
+  if(saved){ _mp.scale=saved.s; _mp.tx=saved.x; _mp.ty=saved.y; }   // 前回の倍率・位置を復元
+  else { _mp.scale=cover; _mp.tx=(mapVW()-_mp.nw*cover)/2; _mp.ty=(mapVH()-_mp.nh*cover)/2; }   // 初回は画面を埋める大きさ
   mapClamp(); mapApply();
 }
 function mapZoomAt(cx,cy,ns){
@@ -1896,7 +1902,7 @@ function openMap(){
   pop.classList.add('open');
   const hint=$('#mapHint'); if(hint){ hint.style.opacity='1'; clearTimeout(window._mapHintT); window._mapHintT=setTimeout(()=>{hint.style.opacity='0';},2600); }
 }
-function closeMap(){ $('#mapPop').classList.remove('open'); }
+function closeMap(){ mapSaveView(); $('#mapPop').classList.remove('open'); }
 function mapInit(){
   const btn=$('#mapBtn'); if(btn) btn.addEventListener('click',openMap);
   const cl=$('#mapClose'); if(cl) cl.addEventListener('click',closeMap);
@@ -1921,10 +1927,11 @@ function mapInit(){
       if(now-_mp.lastTap<300){ const t=_mp.scale>_mp.home*1.1?_mp.home:_mp.home*2.5; mapZoomAt(e.clientX,e.clientY,t); mapClamp(); mapApply(); _mp.lastTap=0; }
       else _mp.lastTap=now;
     }
+    if(_mp.ptrs.size===0) mapSaveView();                      // 指を離したら位置を記憶
   };
   pop.addEventListener('pointerup',end);
   pop.addEventListener('pointercancel',end);
-  pop.addEventListener('wheel',e=>{ e.preventDefault(); mapZoomAt(e.clientX,e.clientY,_mp.scale*(e.deltaY<0?1.15:1/1.15)); mapClamp(); mapApply(); },{passive:false});
+  pop.addEventListener('wheel',e=>{ e.preventDefault(); mapZoomAt(e.clientX,e.clientY,_mp.scale*(e.deltaY<0?1.15:1/1.15)); mapClamp(); mapApply(); mapSaveView(); },{passive:false});
 }
 $('#imgPop').addEventListener('click',closeImg);
 let hapticOn=(localStorage.getItem('kaimono.haptic')??'1')==='1';
